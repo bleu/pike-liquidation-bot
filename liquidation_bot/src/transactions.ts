@@ -152,6 +152,7 @@ export class TransactionFactory {
   };
 
   getOwner = async (address: string) => {
+    console.log(`Getting owner of ${address}`);
     const owner = await this.provider
       .call({
         to: address,

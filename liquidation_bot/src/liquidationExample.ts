@@ -2,6 +2,7 @@ import { withAnvilProvider } from "./anvil";
 import { pUSDC, pWETH, USDC, WETH } from "./contracts";
 import { IWithTransactionFactory } from "./transactions";
 import { withTenderlyProvider } from "./tenderly";
+import { defaultAddresses } from "./utils";
 
 const liquidationTest: IWithTransactionFactory = async (
   wallets,
@@ -76,16 +77,16 @@ const liquidationTest: IWithTransactionFactory = async (
 };
 
 export const anvilTestMain = async () => {
-  await withAnvilProvider(async (wallets, transactionFactory) => {
-    liquidationTest(wallets, transactionFactory);
+  await withAnvilProvider(async (transactionFactory) => {
+    await liquidationTest(defaultAddresses, transactionFactory);
   });
 };
 
 anvilTestMain();
 
 export const tenderlyTestMain = async () => {
-  await withTenderlyProvider(async (wallets, transactionFactory) => {
-    liquidationTest(wallets, transactionFactory);
+  await withTenderlyProvider(async (transactionFactory) => {
+    liquidationTest(defaultAddresses, transactionFactory);
   });
 };
 

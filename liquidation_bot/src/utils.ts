@@ -24,3 +24,8 @@ export const getEnv = (env: string, def?: string) => {
 
 export const fnCalldata = (sig: string, encodedData: string) =>
   ethers.solidityPacked(["bytes4", "bytes"], [fnSelector(sig), encodedData]);
+
+export const defaultAddresses = [
+  "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+];

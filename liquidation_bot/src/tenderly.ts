@@ -42,13 +42,8 @@ export const createTenderlyVNet = async () => {
   };
 };
 
-export const defaultTenderlyWallets = [
-  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "0x76b0340e50bd9883d8b2ca5fd9f52439a9e7cf58",
-];
-
 export const withTenderlyProvider = async (
-  callback: (wallets: string[], transactionFactory: TransactionFactory) => void
+  callback: (transactionFactory: TransactionFactory) => void
 ) => {
   const { id: tenderlyId, rpc } = await createTenderlyVNet();
 
@@ -100,5 +95,5 @@ export const withTenderlyProvider = async (
     provider
   );
 
-  callback(defaultTenderlyWallets, tenderlyTransactionFactory);
+  callback(tenderlyTransactionFactory);
 };

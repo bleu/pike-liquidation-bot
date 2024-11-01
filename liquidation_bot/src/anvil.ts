@@ -1,8 +1,6 @@
 import { Anvil, createAnvil } from "@viem/anvil";
-import { join } from "path";
-import fs from "fs";
 import { ethers } from "ethers";
-import { getEnv, toHex } from "./utils";
+import { defaultAddresses, getEnv, toHex } from "./utils";
 import { ISendTransaction, TransactionFactory } from "./transactions";
 
 function parseBlockNumber(blockNumber: string): number | undefined {
@@ -22,17 +20,6 @@ export const setupAnvil = async (): Promise<{
   anvil: Anvil;
   provider: ethers.JsonRpcProvider;
 }> => {
-  const homeDir = getEnv("HOME");
-  const defaultAnvilPath = join(homeDir, ".foundry", "bin", "anvil");
-
-  if (!fs.existsSync(defaultAnvilPath)) {
-    throw new Error(
-      "Anvil binary not found at " +
-        defaultAnvilPath +
-        ". Please install Foundry: curl -L https://foundry.paradigm.xyz | bash"
-    );
-  }
-
   const forkUrl = getEnv("FORK_URL");
   if (!forkUrl) {
     throw new Error("FORK_URL environment variable must be set");
@@ -44,28 +31,22 @@ export const setupAnvil = async (): Promise<{
   console.log("Starting Anvil with configuration:", {
     forkUrl,
     forkBlockNumber: parsedBlockNumber ?? "latest",
-    anvilPath: defaultAnvilPath,
   });
 
   const anvil = createAnvil({
-    anvilBinary: defaultAnvilPath,
     forkUrl: forkUrl,
     forkBlockNumber: parsedBlockNumber,
     autoImpersonate: true,
-    timeout: 60000,
     port: 8545,
-    host: "127.0.0.1",
-    noMining: true,
   });
 
   // Start anvil
   await anvil.start();
   console.log("Anvil started, waiting for initialization...");
 
-  // Wait for node to initialize
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-
   // Create and test provider
+  const rpcUrl = `http://${anvil.host}:${anvil.port}`;
+  console.log("Provider created", rpcUrl);
   const provider = new ethers.JsonRpcProvider(
     `http://${anvil.host}:${anvil.port}`
   );
@@ -91,10 +72,7 @@ export const setupAnvil = async (): Promise<{
 };
 
 export const withAnvilProvider = async (
-  callback: (
-    wallets: string[],
-    transactionFactory: TransactionFactory
-  ) => Promise<void>
+  callback: (transactionFactory: TransactionFactory) => Promise<void>
 ) => {
   let anvil: Anvil | undefined;
   let provider: ethers.JsonRpcProvider | undefined;
@@ -107,53 +85,32 @@ export const withAnvilProvider = async (
 
     console.log("Successfully connected to Anvil");
 
-    const defaultSigners = [
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-    ].map((key) => new ethers.Wallet(key, provider));
-
     const targetBalance = ethers.parseEther("1000000000");
 
-    console.log(
-      `Default signers:\n${defaultSigners
-        .map((signer) => `${signer.privateKey} => ${signer.address}`)
-        .join("\n")}`
+    // Set balances with retry mechanism
+    await Promise.all(
+      defaultAddresses.map(async (address) => {
+        provider?.send("anvil_setBalance", [address, toHex(targetBalance)]);
+      })
     );
 
-    // Set balances with retry mechanism
-    for (const signer of defaultSigners) {
-      let success = false;
-      for (let i = 0; i < 3; i++) {
-        try {
-          const address = await signer.getAddress();
-          await provider.send("anvil_setBalance", [
-            address,
-            toHex(targetBalance),
-          ]);
-          success = true;
-          break;
-        } catch (error) {
-          console.log(
-            `Retry ${i + 1} setting balance for ${await signer.getAddress()}`
-          );
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-      if (!success) {
-        throw new Error(
-          `Failed to set balance for ${await signer.getAddress()}`
-        );
-      }
-    }
-
     const anvilSendTransaction: ISendTransaction = async (data) => {
-      console.log("Sending transaction");
       if (!data.from) throw new Error("from address not set");
       if (!provider) throw new Error("provider not initialized");
-      console.log(`Sending transaction: ${JSON.stringify(data)}`);
       const signer = await getSigner(data.from, provider);
-      console.log(`Sending transaction from: ${signer.address}`);
-      const tx = await signer.sendTransaction(data);
+      const tx = await signer.sendTransaction(data).catch((error) => {
+        if (error.code === "INSUFFICIENT_FUNDS") {
+          console.log(
+            `Insufficient funds for transaction from ${data.from}. Sending 10000 ETH to the address`
+          );
+          provider?.send("anvil_setBalance", [
+            data.from,
+            toHex(ethers.parseEther("10000")),
+          ]);
+          return signer.sendTransaction(data);
+        }
+        throw error;
+      });
       const receipt = await tx.wait();
       if (receipt?.status === 0) {
         throw new Error(`Transaction failed: ${JSON.stringify(receipt)}`);
@@ -165,10 +122,7 @@ export const withAnvilProvider = async (
       provider
     );
 
-    await callback(
-      defaultSigners.map((signer) => signer.address),
-      anvilTransactionFactory
-    );
+    await callback(anvilTransactionFactory);
   } catch (error) {
     console.error("Error in withAnvilProvider:", error);
     throw error;
@@ -191,7 +145,6 @@ export const getSigner = async (
   try {
     return await provider.getSigner(who);
   } catch (err) {
-    console.log(`Impersonating account: ${who}`);
     await provider.send("anvil_impersonateAccount", [who]);
     return await provider.getSigner(who);
   }
