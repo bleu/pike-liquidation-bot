@@ -1,7 +1,12 @@
 import { Anvil, createAnvil } from "@viem/anvil";
 import { ethers } from "ethers";
-import { defaultAddresses, getEnv, toHex } from "./utils";
-import { ISendTransaction, TransactionFactory } from "./transactions";
+import {
+  defaultAddresses,
+  getEnv,
+  ISendTransaction,
+  toHex,
+  TransactionFactory,
+} from "../utils";
 
 function parseBlockNumber(blockNumber: string): number | undefined {
   if (blockNumber === "latest") {
@@ -37,36 +42,17 @@ export const setupAnvil = async (): Promise<{
     forkUrl: forkUrl,
     forkBlockNumber: parsedBlockNumber,
     autoImpersonate: true,
-    port: 8545,
   });
 
   // Start anvil
   await anvil.start();
-  console.log("Anvil started, waiting for initialization...");
 
   // Create and test provider
   const rpcUrl = `http://${anvil.host}:${anvil.port}`;
-  console.log("Provider created", rpcUrl);
+  console.log("Anvil created at", rpcUrl);
   const provider = new ethers.JsonRpcProvider(
     `http://${anvil.host}:${anvil.port}`
   );
-
-  // Test connection with retries
-  let connected = false;
-  for (let i = 0; i < 5; i++) {
-    try {
-      await provider.getNetwork();
-      connected = true;
-      break;
-    } catch (error) {
-      if (i === 4) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-  }
-
-  if (!connected) {
-    throw new Error("Failed to connect to Anvil after multiple attempts");
-  }
 
   return { anvil, provider };
 };

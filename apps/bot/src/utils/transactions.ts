@@ -1,14 +1,17 @@
-import { DEFAULT_ABI_CODER, fnCalldata, normalizeAddress } from "./utils";
+import {
+  DEFAULT_ABI_CODER,
+  fnCalldata,
+  normalizeAddress,
+  toBigInt,
+} from "./converters";
 import { mockOracle, oracleEngine, riskEngine, WETH } from "./contracts";
 import { ethers, MaxUint256 } from "ethers";
-
-export type ISendTransaction = (
-  data: ethers.TransactionRequest & { from?: string }
-) => Promise<void>;
+import { ISendTransaction } from "./types";
+import { getUnderlying } from "./consts";
 
 export class TransactionFactory {
-  private sendTransaction: ISendTransaction;
-  private provider: ethers.JsonRpcProvider;
+  sendTransaction: ISendTransaction;
+  provider: ethers.JsonRpcProvider;
 
   constructor(
     sendTransaction: ISendTransaction,
@@ -112,6 +115,14 @@ export class TransactionFactory {
     });
   };
 
+  depositTokenFlow = async (user: string, pToken: string, amount: bigint) => {
+    const token = getUnderlying(pToken);
+    await this.mintToken(token, user, amount);
+    await this.approveToken(token, user, pToken, amount);
+    await this.depositToken(user, pToken, amount);
+    return this.enterMarket([pToken], user);
+  };
+
   setCollateralFactor = async (
     pToken: string,
     collateralFactor: bigint,
@@ -182,6 +193,39 @@ export class TransactionFactory {
     });
     const bal = DEFAULT_ABI_CODER.decode(["uint"], ret)[0];
     return bal;
+  };
+
+  getPTokenPrice = async (pToken: string): Promise<bigint> => {
+    const ret = await this.provider.call({
+      to: oracleEngine,
+      data: fnCalldata(
+        "getUnderlyingPrice(address)",
+        DEFAULT_ABI_CODER.encode(["address"], [pToken])
+      ),
+    });
+    const price = toBigInt(ret);
+    return price;
+  };
+
+  getTokenPrice = async (token: string): Promise<bigint> => {
+    const ret = await this.provider.call({
+      to: oracleEngine,
+      data: fnCalldata(
+        "getPRice(address)",
+        DEFAULT_ABI_CODER.encode(["address"], [token])
+      ),
+    });
+    const price = toBigInt(ret);
+    return price;
+  };
+
+  getTokenTotalSupply = async (token: string): Promise<bigint> => {
+    const ret = await this.provider.call({
+      to: token,
+      data: fnCalldata("totalSupply()", DEFAULT_ABI_CODER.encode([], [])),
+    });
+    const totalSupply = toBigInt(ret);
+    return totalSupply;
   };
 }
 
