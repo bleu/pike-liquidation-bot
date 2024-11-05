@@ -1,5 +1,5 @@
-import { ethers } from "ethers";
+import { TransactionRequest } from "viem";
 
 export type ISendTransaction = (
-  data: ethers.TransactionRequest & { from?: string }
+  data: TransactionRequest & { from?: `0x${string}` }
 ) => void;

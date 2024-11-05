@@ -14,11 +14,9 @@ import {
 } from "../../utils";
 
 export async function completeSetup(transactionFactory: TransactionFactory) {
-  await Promise.all([
-    setupOracles(transactionFactory),
-    setupFactors(transactionFactory),
-    setupBalances(transactionFactory),
-  ]);
+  await setupOracles(transactionFactory);
+  await setupFactors(transactionFactory);
+  await setupBalances(transactionFactory);
 }
 
 export async function setupBalances(transactionFactory: TransactionFactory) {

@@ -1,18 +1,19 @@
+import { pool, testClient } from "./utils.js";
 import { fetchLogs } from "@viem/anvil";
-import { afterAll, afterEach } from "vitest";
-import { anvilPool, anvilProvider, anvilRpcUrl } from "../src/fork/anvil";
+import { afterAll, afterEach, beforeEach } from "vitest";
 
 afterAll(async () => {
   // If you are using a fork, you can reset your anvil instance to the initial fork block.
-  anvilProvider.send("anvil_reset", []);
+  await testClient.reset({
+    jsonRpcUrl: process.env.FORK_URL,
+  });
 });
 
 afterEach(async (context) => {
   context.onTestFailed(async () => {
     // If a test fails, you can fetch and print the logs of your anvil instance.
-    const logs = await fetchLogs("http://localhost:8545", anvilPool);
+    const logs = await fetchLogs("http://localhost:8545", pool);
     // Only print the 20 most recent log messages.
     console.log(...logs.slice(-20));
-    console.log({ anvilPool, anvilRpcUrl });
   });
 });

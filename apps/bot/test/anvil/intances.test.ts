@@ -1,10 +1,13 @@
-import { anvilProvider, anvilTransactionFactory } from "../../src/fork/anvil";
+import {
+  anvilPublicClient,
+  anvilTransactionFactory,
+} from "../../src/fork/anvil";
 import { expect, describe, it } from "vitest";
 import { defaultAddresses, pWETH, WETH } from "../../src/utils";
 
 describe("Anvil Setup", () => {
   it("should have a block number on provider", async () => {
-    const blockNumber = await anvilProvider.getBlockNumber();
+    const blockNumber = await anvilPublicClient.getBlockNumber();
     expect(blockNumber).toBeDefined();
   });
 

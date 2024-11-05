@@ -8,16 +8,17 @@ import { mockOracle, oracleEngine, riskEngine, WETH } from "./contracts";
 import { ethers, MaxUint256 } from "ethers";
 import { ISendTransaction } from "./types";
 import { getUnderlying } from "./consts";
+import { PublicClient, TestClient, WalletClient } from "viem";
 
 export class TransactionFactory {
   sendTransaction: ISendTransaction;
-  provider: ethers.JsonRpcProvider;
+  provider: TestClient & PublicClient & WalletClient;
   contractOwner: Record<string, string>;
   tokenDecimals: Record<string, bigint>;
 
   constructor(
     sendTransaction: ISendTransaction,
-    provider: ethers.JsonRpcProvider
+    provider: TestClient & PublicClient & WalletClient
   ) {
     this.sendTransaction = sendTransaction;
     this.provider = provider;
@@ -26,9 +27,9 @@ export class TransactionFactory {
   }
 
   approveToken = async (
-    token: string,
-    user: string,
-    spender: string,
+    token: `0x${string}`,
+    user: `0x${string}`,
+    spender: `0x${string}`,
     amount: bigint
   ) => {
     return this.sendTransaction({
@@ -41,7 +42,11 @@ export class TransactionFactory {
     });
   };
 
-  mintToken = async (token: string, to: string, amount: bigint) => {
+  mintToken = async (
+    token: `0x${string}`,
+    to: `0x${string}`,
+    amount: bigint
+  ) => {
     const tokenOwner = await this.getOwner(token);
 
     const mintCalldata = fnCalldata(
@@ -56,7 +61,11 @@ export class TransactionFactory {
     });
   };
 
-  depositToken = async (user: string, pToken: string, amount: bigint) => {
+  depositToken = async (
+    user: `0x${string}`,
+    pToken: `0x${string}`,
+    amount: bigint
+  ) => {
     return this.sendTransaction({
       from: user,
       to: pToken,
@@ -67,7 +76,11 @@ export class TransactionFactory {
     });
   };
 
-  borrowToken = async (user: string, pToken: string, amount: bigint) => {
+  borrowToken = async (
+    user: `0x${string}`,
+    pToken: `0x${string}`,
+    amount: bigint
+  ) => {
     return this.sendTransaction({
       from: user,
       to: pToken,
@@ -78,7 +91,7 @@ export class TransactionFactory {
     });
   };
 
-  setMockOraclePrice = async (price: bigint, token: string) => {
+  setMockOraclePrice = async (price: bigint, token: `0x${string}`) => {
     const tokenDecimals = await this.getTokenDecimals(token);
     return this.sendTransaction({
       from: token, // there is no owner for mockOracle so we can call it from any address
@@ -93,7 +106,7 @@ export class TransactionFactory {
     });
   };
 
-  setMockOracle = async (token: string) => {
+  setMockOracle = async (token: `0x${string}`) => {
     const oracleEngineOwner = await this.getOwner(oracleEngine);
     return this.sendTransaction({
       from: oracleEngineOwner,
@@ -108,7 +121,7 @@ export class TransactionFactory {
     });
   };
 
-  enterMarket = async (pTokens: string[], from: string) => {
+  enterMarket = async (pTokens: `0x${string}`, [], from: `0x${string}`) => {
     return this.sendTransaction({
       from,
       to: riskEngine,
@@ -119,7 +132,11 @@ export class TransactionFactory {
     });
   };
 
-  depositTokenFlow = async (user: string, pToken: string, amount: bigint) => {
+  depositTokenFlow = async (
+    user: `0x${string}`,
+    pToken: `0x${string}`,
+    amount: bigint
+  ) => {
     const token = getUnderlying(pToken);
     await this.mintToken(token, user, amount);
     await this.approveToken(token, user, pToken, amount);
@@ -128,7 +145,7 @@ export class TransactionFactory {
   };
 
   setCollateralFactor = async (
-    pToken: string,
+    pToken: `0x${string}`,
     collateralFactor: bigint,
     liquidationFactor: bigint
   ) => {
@@ -147,11 +164,11 @@ export class TransactionFactory {
   };
 
   liquidateUser = async (
-    liquidator: string,
-    borrower: string,
-    pToken: string,
+    liquidator: `0x${string}`,
+    borrower: `0x${string}`,
+    pToken: `0x${string}`,
     amount: bigint,
-    collateralPToken: string
+    collateralPToken: `0x${string}`
   ) => {
     return this.sendTransaction({
       from: liquidator,
@@ -166,37 +183,44 @@ export class TransactionFactory {
     });
   };
 
-  getOwner = async (address: string) => {
+  getOwner = async (address: `0x${string}`) => {
     if (this.contractOwner[address]) {
       return this.contractOwner[address];
     }
 
-    const owner = await this.provider
-      .call({
-        to: address,
-        data: fnCalldata("owner()", DEFAULT_ABI_CODER.encode([], [])),
-      })
-      .then((res) => normalizeAddress(res));
+    const res = await this.provider.call({
+      to: address,
+      data: fnCalldata("owner()", DEFAULT_ABI_CODER.encode([], [])),
+    });
+
+    console.log({ address, res });
+    const owner = normalizeAddress(res.data);
 
     this.contractOwner[address] = owner;
+
     return owner;
   };
 
-  getTokenDecimals = async (token: string): Promise<bigint> => {
+  getTokenDecimals = async (
+    token: `0x${string}`
+  ): Promise<bigint | undefined> => {
     if (this.tokenDecimals[token]) {
       return this.tokenDecimals[token];
     }
 
-    const decimals = await this.provider
-      .call({
-        to: token,
-        data: fnCalldata("decimals()", DEFAULT_ABI_CODER.encode([], [])),
-      })
-      .then((res) => DEFAULT_ABI_CODER.decode(["uint"], res)[0]);
+    const res = await this.provider.call({
+      to: token,
+      data: fnCalldata("decimals()", DEFAULT_ABI_CODER.encode([], [])),
+    });
+    console.log({ res });
+    const decimals = DEFAULT_ABI_CODER.decode(["uint256"], res.data)[0];
     return decimals;
   };
 
-  getTokenBalance = async (token: string, owner: string): Promise<bigint> => {
+  getTokenBalance = async (
+    token: `0x${string}`,
+    owner: `0x${string}`
+  ): Promise<bigint | undefined> => {
     const ret = await this.provider.call({
       to: token,
       data: fnCalldata(
@@ -204,11 +228,13 @@ export class TransactionFactory {
         DEFAULT_ABI_CODER.encode(["address"], [owner])
       ),
     });
-    const bal = DEFAULT_ABI_CODER.decode(["uint"], ret)[0];
+    const bal = DEFAULT_ABI_CODER.decode(["uint256"], ret.data)[0];
     return bal;
   };
 
-  getPTokenPrice = async (pToken: string): Promise<bigint> => {
+  getPTokenPrice = async (
+    pToken: `0x${string}`
+  ): Promise<bigint | undefined> => {
     const ret = await this.provider.call({
       to: oracleEngine,
       data: fnCalldata(
@@ -216,11 +242,11 @@ export class TransactionFactory {
         DEFAULT_ABI_CODER.encode(["address"], [pToken])
       ),
     });
-    const price = toBigInt(ret);
+    const price = toBigInt(ret.data);
     return price;
   };
 
-  getTokenPrice = async (token: string): Promise<bigint> => {
+  getTokenPrice = async (token: `0x${string}`): Promise<bigint | undefined> => {
     const ret = await this.provider.call({
       to: oracleEngine,
       data: fnCalldata(
@@ -228,14 +254,15 @@ export class TransactionFactory {
         DEFAULT_ABI_CODER.encode(["address"], [token])
       ),
     });
-    const price = toBigInt(ret);
+
+    const price = toBigInt(ret.data);
     return price;
   };
 
   getCurrentBorrowAmount = async (
-    pToken: string,
-    user: string
-  ): Promise<bigint> => {
+    pToken: `0x${string}`,
+    user: `0x${string}`
+  ): Promise<bigint | undefined> => {
     const ret = await this.provider.call({
       to: pToken,
       data: fnCalldata(
@@ -243,14 +270,14 @@ export class TransactionFactory {
         DEFAULT_ABI_CODER.encode(["address"], [user])
       ),
     });
-    const borrowAmount = toBigInt(ret);
+    const borrowAmount = toBigInt(ret.data);
     return borrowAmount;
   };
 
   checkIfCanLiquidate = async (
-    borrowToken: string,
-    borrower: string,
-    collateralToken: string,
+    borrowToken: `0x${string}`,
+    borrower: `0x${string}`,
+    collateralToken: `0x${string}`,
     amount: bigint
   ): Promise<boolean> => {
     const ret = await this.provider.call({
@@ -263,22 +290,25 @@ export class TransactionFactory {
         )
       ),
     });
-    const errorCode = toBigInt(ret);
+    const errorCode = toBigInt(ret.data);
     console.log(`Liquidation check error code: ${errorCode.toString()}`);
     return errorCode == BigInt(0);
   };
 
-  getTokenTotalSupply = async (token: string): Promise<bigint> => {
+  getTokenTotalSupply = async (
+    token: `0x${string}`
+  ): Promise<bigint | undefined> => {
     const ret = await this.provider.call({
       to: token,
       data: fnCalldata("totalSupply()", DEFAULT_ABI_CODER.encode([], [])),
     });
-    const totalSupply = toBigInt(ret);
+    const totalSupply = toBigInt(ret.data);
     return totalSupply;
   };
 }
 
 export type IWithTransactionFactory = (
-  wallets: string[],
+  wallets: `0x${string}`,
+  [],
   transactionFactory: TransactionFactory
 ) => void;

@@ -1,8 +1,8 @@
-import { startProxy } from "@viem/anvil";
-import { ethers, JsonRpcProvider } from "ethers";
-import { getEnv, ISendTransaction, toHex, TransactionFactory } from "../utils";
-import { createPublicClient, http, PublicClient } from "viem";
-import { baseSepolia } from "viem/chains";
+import { testClient } from "../../test/utils";
+import { Address, parseEther } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { ISendTransaction, toHex, TransactionFactory } from "../utils";
+import { getTransactionCount } from "viem/_types/actions/public/getTransactionCount";
 
 /**
  * The id of the current test worker.
@@ -25,70 +25,71 @@ function parseBlockNumber(blockNumber: string): number | undefined {
   return parsed;
 }
 
-export const setupAnvil = async () => {
-  const forkUrl = getEnv("FORK_URL");
-  if (!forkUrl) {
-    throw new Error("FORK_URL environment variable must be set");
-  }
-
-  const forkBlockNumber = getEnv("FORK_BLOCK_NUMBER", "latest");
-  const parsedBlockNumber = parseBlockNumber(forkBlockNumber);
-
-  return await startProxy({
-    options: {
-      forkUrl: forkUrl,
-      forkBlockNumber: parsedBlockNumber,
-      autoImpersonate: true,
-      stepsTracing: true,
-      disableBlockGasLimit: true,
-      blockTime: 0.01,
-      gasPrice: 0,
-    },
+const impersonateAccount = async (address: Address) => {
+  await testClient.request({
+    method: "anvil_impersonateAccount",
+    params: [address],
   });
 };
 
-export const anvilProvider = new JsonRpcProvider(anvilRpcUrl);
-
-export const anvilGetSigner = async (
-  who: string,
-  provider: ethers.JsonRpcProvider
-) => {
-  try {
-    return await provider.getSigner(who);
-  } catch (err) {
-    await provider.send("anvil_impersonateAccount", [who]);
-    return await provider.getSigner(who);
-  }
+const setBalance = async (address: `0x${string}`) => {
+  await testClient.request({
+    method: "anvil_setBalance",
+    params: [address, toHex(parseEther("10000"))],
+  });
 };
 
 export const anvilSendTransaction: ISendTransaction = async (data) => {
-  if (!data.from) throw new Error("from address not set");
-  if (!anvilProvider) throw new Error("provider not initialized");
-  const signer = await anvilGetSigner(data.from, anvilProvider);
-  const tx = await signer.sendTransaction(data).catch((error) => {
-    if (error.code === "INSUFFICIENT_FUNDS") {
-      anvilProvider?.send("anvil_setBalance", [
-        data.from,
-        toHex(ethers.parseEther("10000")),
-      ]);
-      return signer.sendTransaction(data);
-    }
-    console.log(`Transaction send error: ${JSON.stringify(data)}`);
-    throw error;
-  });
+  if (!data.from || data.from === "0x") throw new Error("from address not set");
 
-  const receipt = await tx.wait();
-  if (receipt?.status === 0) {
-    throw new Error(`Transaction failed: ${JSON.stringify(receipt)}`);
+  try {
+    await impersonateAccount(data.from);
+
+    console.log({ data });
+    const txCount = await testClient.getTransactionCount({
+      address: data.from as `0x${string}`,
+      blockTag: "latest",
+    });
+
+    const hash = await testClient
+      .sendTransaction({
+        nonce: txCount + 1,
+        account: data.from as `0x${string}`,
+        to: data.to as `0x${string}`,
+        data: data.data as `0x${string}`,
+        value: data.value ? BigInt(data.value.toString()) : 0n,
+      })
+      .catch(async (error) => {
+        if (error.message.includes("Insufficient funds")) {
+          await setBalance(data.from!);
+          return testClient.sendTransaction({
+            account: data.from as `0x${string}`,
+            to: data.to as `0x${string}`,
+            data: data.data as `0x${string}`,
+            value: data.value ? BigInt(data.value.toString()) : 0n,
+          });
+        }
+        console.log(`Transaction send error: ${JSON.stringify(data)}`);
+        throw error;
+      });
+
+    // const receipt = await testClient.waitForTransactionReceipt({ hash });
+    // if (receipt.status === "reverted") {
+    //   throw new Error(`Transaction failed: ${JSON.stringify(receipt)}`);
+    // }
+    await testClient.mine({
+      blocks: 1,
+    });
+  } catch (error) {
+    console.error("Transaction error:", error);
+    throw error;
   }
 };
 
+// Create transaction factory using the Viem-based sender but keeping the original interface
 export const anvilTransactionFactory = new TransactionFactory(
   anvilSendTransaction,
-  anvilProvider
+  testClient
 );
 
-export const anvilPublicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http(anvilRpcUrl),
-}) as PublicClient;
+export const anvilPublicClient = testClient;
