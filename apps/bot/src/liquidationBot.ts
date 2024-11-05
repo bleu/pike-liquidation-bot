@@ -1,37 +1,95 @@
+import { PublicClient } from "viem";
 import { getUnderlying } from "./utils";
 import { TransactionFactory } from "./utils/transactions";
 
 export class LiquidationBot {
   address: string;
   transactionFactory: TransactionFactory;
-  constructor(transactionFactory: TransactionFactory, address: string) {
+  liquidations: number = 0;
+  publicClient: PublicClient;
+  unwatchesFn: Record<string, () => void> = {};
+
+  constructor(
+    transactionFactory: TransactionFactory,
+    address: string,
+    publicClient: PublicClient
+  ) {
     this.transactionFactory = transactionFactory;
     this.address = address;
+    this.publicClient = publicClient;
   }
+
+  checkAndLiquidatePosition = async (
+    borrower: string,
+    borrowPToken: string,
+    collateralPToken: string
+  ) => {
+    const amount = await this.transactionFactory.getCurrentBorrowAmount(
+      borrowPToken,
+      borrower
+    );
+    const amountToLiquidate = amount / 2n;
+    const canLiquidate = await this.transactionFactory.checkIfCanLiquidate(
+      borrowPToken,
+      borrower,
+      collateralPToken,
+      amountToLiquidate
+    );
+    if (canLiquidate) {
+      await this.liquidatePosition(
+        borrower,
+        borrowPToken,
+        amountToLiquidate,
+        collateralPToken
+      );
+      return true;
+    }
+    return false;
+  };
+
+  startMonitorPosition = (
+    borrower: string,
+    pToken: string,
+    collateral: string
+  ) => {
+    const unwatchesFn = this.publicClient.watchBlocks({
+      onBlock: (block) =>
+        this.checkAndLiquidatePosition(borrower, pToken, collateral),
+    });
+    this.unwatchesFn[borrower + pToken + collateral] = unwatchesFn;
+  };
+
+  stopMonitorPosition = (
+    borrower: string,
+    pToken: string,
+    collateral: string
+  ) => {
+    this.unwatchesFn[borrower + pToken + collateral]();
+  };
 
   liquidatePosition = async (
     borrower: string,
-    pToken: string,
+    borrowedPToken: string,
     amount: bigint,
-    collateral: string
+    collateralPToken: string
   ) => {
-    const mintUnderlying = await this.transactionFactory.mintToken(
-      getUnderlying(pToken),
+    await this.transactionFactory.mintToken(
+      getUnderlying(borrowedPToken),
       this.address,
       amount
     );
     await this.transactionFactory.approveToken(
-      getUnderlying(pToken),
+      getUnderlying(borrowedPToken),
       this.address,
-      pToken,
+      borrowedPToken,
       amount
     );
     return this.transactionFactory.liquidateUser(
       this.address,
       borrower,
-      pToken,
+      borrowedPToken,
       amount,
-      collateral
+      collateralPToken
     );
   };
 }

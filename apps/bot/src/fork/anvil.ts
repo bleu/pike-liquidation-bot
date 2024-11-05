@@ -1,6 +1,8 @@
 import { startProxy } from "@viem/anvil";
 import { ethers, JsonRpcProvider } from "ethers";
 import { getEnv, ISendTransaction, toHex, TransactionFactory } from "../utils";
+import { createPublicClient, http, PublicClient } from "viem";
+import { baseSepolia } from "viem/chains";
 
 /**
  * The id of the current test worker.
@@ -85,3 +87,8 @@ export const anvilTransactionFactory = new TransactionFactory(
   anvilSendTransaction,
   anvilProvider
 );
+
+export const anvilPublicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(anvilRpcUrl),
+}) as PublicClient;

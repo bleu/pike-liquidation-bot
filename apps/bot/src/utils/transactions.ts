@@ -151,7 +151,7 @@ export class TransactionFactory {
     borrower: string,
     pToken: string,
     amount: bigint,
-    collateral: string
+    collateralPToken: string
   ) => {
     return this.sendTransaction({
       from: liquidator,
@@ -160,7 +160,7 @@ export class TransactionFactory {
         "liquidateBorrow(address,uint256,address)",
         DEFAULT_ABI_CODER.encode(
           ["address", "uint", "address"],
-          [borrower, amount, collateral]
+          [borrower, amount, collateralPToken]
         )
       ),
     });
@@ -230,6 +230,42 @@ export class TransactionFactory {
     });
     const price = toBigInt(ret);
     return price;
+  };
+
+  getCurrentBorrowAmount = async (
+    pToken: string,
+    user: string
+  ): Promise<bigint> => {
+    const ret = await this.provider.call({
+      to: pToken,
+      data: fnCalldata(
+        "borrowBalanceCurrent(address)",
+        DEFAULT_ABI_CODER.encode(["address"], [user])
+      ),
+    });
+    const borrowAmount = toBigInt(ret);
+    return borrowAmount;
+  };
+
+  checkIfCanLiquidate = async (
+    borrowToken: string,
+    borrower: string,
+    collateralToken: string,
+    amount: bigint
+  ): Promise<boolean> => {
+    const ret = await this.provider.call({
+      to: riskEngine,
+      data: fnCalldata(
+        "liquidateBorrowAllowed(address,address,address,uint256)",
+        DEFAULT_ABI_CODER.encode(
+          ["address", "address", "address", "uint"],
+          [borrowToken, collateralToken, borrower, amount]
+        )
+      ),
+    });
+    const errorCode = toBigInt(ret);
+    console.log(`Liquidation check error code: ${errorCode.toString()}`);
+    return errorCode == BigInt(0);
   };
 
   getTokenTotalSupply = async (token: string): Promise<bigint> => {
