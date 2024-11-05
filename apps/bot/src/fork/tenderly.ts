@@ -1,8 +1,4 @@
-import {
-  getEnv,
-  ISendTransaction,
-  TransactionFactory,
-} from "apps/bot/src/utils";
+import { getEnv, ISendTransaction, TransactionFactory } from "../utils";
 import { ethers } from "ethers";
 
 const SIMULATE_API = `https://api.tenderly.co/api/v1/account/${getEnv(

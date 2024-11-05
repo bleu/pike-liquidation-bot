@@ -14,16 +14,17 @@ import {
 } from "../../utils";
 
 export async function completeSetup(transactionFactory: TransactionFactory) {
-  // Set up mock oracles
-  const amountToEnter = BigInt(1e25);
-
-  return Promise.all([
+  await Promise.all([
     setupOracles(transactionFactory),
     setupFactors(transactionFactory),
-    transactionFactory.depositTokenFlow(pWETH, pWETH, amountToEnter),
-    transactionFactory.depositTokenFlow(pUSDC, pUSDC, amountToEnter),
-    transactionFactory.depositTokenFlow(pstETH, pstETH, amountToEnter),
+    setupBalances(transactionFactory),
   ]);
+}
+
+export async function setupBalances(transactionFactory: TransactionFactory) {
+  await transactionFactory.depositTokenFlow(WETH, pWETH, BigInt(1e20));
+  await transactionFactory.depositTokenFlow(USDC, pUSDC, BigInt(1e13));
+  await transactionFactory.depositTokenFlow(stETH, pstETH, BigInt(1e20));
 }
 
 export async function setupFactors(transactionFactory: TransactionFactory) {

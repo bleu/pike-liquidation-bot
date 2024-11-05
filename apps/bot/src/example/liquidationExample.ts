@@ -1,17 +1,15 @@
-import { withAnvilProvider } from "../src/fork/anvil";
 import {
   pUSDC,
   pWETH,
-  USDC,
   WETH,
   defaultAddresses,
   initialLF,
   initialUsdcPrice,
   IWithTransactionFactory,
-} from "apps/bot/src/utils";
-import { withTenderlyProvider } from "../src/fork/tenderly";
-import { LiquidationBot } from "../src/liquidationBot";
-import { completeSetup } from "../src/fork/mocks/setup";
+} from "../utils";
+import { withTenderlyProvider } from "../fork/tenderly";
+import { LiquidationBot } from "../liquidationBot";
+import { completeSetup } from "../fork/mocks/setup";
 
 const liquidationTest: IWithTransactionFactory = async (
   wallets,
@@ -46,18 +44,10 @@ const liquidationTest: IWithTransactionFactory = async (
   console.log("Liquidation executed");
 };
 
-export const anvilTestMain = async () => {
-  await withAnvilProvider(async (transactionFactory) => {
-    await liquidationTest(defaultAddresses, transactionFactory);
-  });
-};
-
-anvilTestMain();
-
 export const tenderlyTestMain = async () => {
   await withTenderlyProvider(async (transactionFactory) => {
     liquidationTest(defaultAddresses, transactionFactory);
   });
 };
 
-// tenderlyTestMain();
+tenderlyTestMain();

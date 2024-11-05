@@ -2,8 +2,11 @@ import { defineConfig } from "vitest/config";
 
 // https://vitest.dev/config/
 export default defineConfig({
-  //   test: {
-  //     globalSetup: ["./tests/globalSetup.ts"],
-  //     setupFiles: ["./tests/setup.ts"],
-  //   },
+  test: {
+    maxWorkers: 4,
+    minWorkers: 1,
+    globalSetup: ["./test/globalSetup.ts"],
+    setupFiles: ["./test/setup.ts"],
+    testTimeout: 1_000_000,
+  },
 });

@@ -12,6 +12,8 @@ import { getUnderlying } from "./consts";
 export class TransactionFactory {
   sendTransaction: ISendTransaction;
   provider: ethers.JsonRpcProvider;
+  contractOwner: Record<string, string>;
+  tokenDecimals: Record<string, bigint>;
 
   constructor(
     sendTransaction: ISendTransaction,
@@ -19,6 +21,8 @@ export class TransactionFactory {
   ) {
     this.sendTransaction = sendTransaction;
     this.provider = provider;
+    this.contractOwner = {};
+    this.tokenDecimals = {};
   }
 
   approveToken = async (
@@ -77,7 +81,7 @@ export class TransactionFactory {
   setMockOraclePrice = async (price: bigint, token: string) => {
     const tokenDecimals = await this.getTokenDecimals(token);
     return this.sendTransaction({
-      from: WETH, // there is no owner for mockOracle so we can call it from any address
+      from: token, // there is no owner for mockOracle so we can call it from any address
       to: mockOracle,
       data: fnCalldata(
         "setPrice(address,uint256,uint256)",
@@ -120,7 +124,7 @@ export class TransactionFactory {
     await this.mintToken(token, user, amount);
     await this.approveToken(token, user, pToken, amount);
     await this.depositToken(user, pToken, amount);
-    return this.enterMarket([pToken], user);
+    await this.enterMarket([pToken], user);
   };
 
   setCollateralFactor = async (
@@ -163,17 +167,26 @@ export class TransactionFactory {
   };
 
   getOwner = async (address: string) => {
-    console.log(`Getting owner of ${address}`);
+    if (this.contractOwner[address]) {
+      return this.contractOwner[address];
+    }
+
     const owner = await this.provider
       .call({
         to: address,
         data: fnCalldata("owner()", DEFAULT_ABI_CODER.encode([], [])),
       })
       .then((res) => normalizeAddress(res));
+
+    this.contractOwner[address] = owner;
     return owner;
   };
 
   getTokenDecimals = async (token: string): Promise<bigint> => {
+    if (this.tokenDecimals[token]) {
+      return this.tokenDecimals[token];
+    }
+
     const decimals = await this.provider
       .call({
         to: token,
@@ -211,7 +224,7 @@ export class TransactionFactory {
     const ret = await this.provider.call({
       to: oracleEngine,
       data: fnCalldata(
-        "getPRice(address)",
+        "getPrice(address)",
         DEFAULT_ABI_CODER.encode(["address"], [token])
       ),
     });

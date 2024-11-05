@@ -6,8 +6,8 @@ export const defaultAddresses = [
 ];
 
 export const initialUsdcPrice = BigInt(1e6);
-export const initialWethPrice = BigInt(3000e6);
-export const initialStEthPrice = BigInt(3000e6);
+export const initialWethPrice = BigInt(1000e6);
+export const initialStEthPrice = BigInt(1000e6);
 
 export const getUnderlying = (pToken: string) => {
   if (pToken === pWETH) return WETH;
