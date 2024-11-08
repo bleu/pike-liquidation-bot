@@ -1,3 +1,4 @@
+import { Address } from "viem";
 import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "./contracts";
 
 export const defaultAddresses = [
@@ -9,11 +10,17 @@ export const initialUsdcPrice = BigInt(1e6);
 export const initialWethPrice = BigInt(1000e6);
 export const initialStEthPrice = BigInt(1000e6);
 
-export const getUnderlying = (pToken: string) => {
+export const getUnderlying = (pToken: Address) => {
   if (pToken === pWETH) return WETH;
   if (pToken === pUSDC) return USDC;
   if (pToken === pstETH) return stETH;
   throw new Error(`Unknown pToken: ${pToken}`);
+};
+
+export const getDecimals = (token: Address) => {
+  if (token === WETH || token === stETH) return 18n;
+  if (token === USDC) return 6n;
+  throw new Error(`Unknown token: ${token}`);
 };
 
 export const initialCF = BigInt(75e16);
