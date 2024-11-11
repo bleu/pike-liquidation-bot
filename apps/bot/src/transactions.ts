@@ -1,4 +1,4 @@
-import { type Address, type PublicClient, type WalletClient } from "viem";
+import { type Address, type WalletClient } from "viem";
 import { mockOracle, riskEngine } from "./utils/contracts";
 import { MaxUint256 } from "ethers";
 import { getDecimals, getUnderlying } from "./utils/consts";
@@ -23,12 +23,12 @@ export class PikeClient {
     const baseFee = block.baseFeePerGas!;
 
     // Set priority fee (2 Gwei)
-    const maxPriorityFeePerGas = 2_000_000_000n;
+    const maxPriorityFeePerGas = 5_000_000_000n;
 
     // maxFeePerGas must be at least baseFee + maxPriorityFeePerGas
     // Add 20% buffer to ensure better inclusion
     const maxFeePerGas =
-      baseFee + maxPriorityFeePerGas + (baseFee * 20n) / 100n;
+      baseFee + maxPriorityFeePerGas + (baseFee * 50n) / 100n;
 
     console.log(`Base fee: ${baseFee} wei`);
     console.log(`Max priority fee: ${maxPriorityFeePerGas} wei`);
@@ -42,7 +42,7 @@ export class PikeClient {
 
   private async waitForTransactionWithTimeout(
     hash: `0x${string}`,
-    timeoutMs: number = 60000, // 1 minute default timeout
+    timeoutMs: number = 15000, // 1 minute default timeout
     pollIntervalMs: number = 5000 // 5 second polling interval
   ) {
     const startTime = Date.now();
@@ -93,6 +93,8 @@ export class PikeClient {
 
         console.log(
           `Sending transaction from ${walletClientToUse.account?.address} to ${tx.to}`,
+          `data: ${tx.data}`,
+          `value: ${tx.value}`,
           `\nValue: ${tx.value}`,
           `\nGas Limit: ${gasLimit}`,
           `\nMax Fee: ${gasFees.maxFeePerGas} wei`,
@@ -259,6 +261,18 @@ export class PikeClient {
       data: encodeFunctionData({
         abi: pTokenAbi,
         functionName: "repayBorrow",
+        args: [amount],
+      }),
+      value: 0n,
+    });
+  }
+
+  async redeemToken({ pToken, amount }: { pToken: Address; amount: bigint }) {
+    return this.sendAndWaitForReceipt({
+      to: pToken,
+      data: encodeFunctionData({
+        abi: pTokenAbi,
+        functionName: "redeem",
         args: [amount],
       }),
       value: 0n,
