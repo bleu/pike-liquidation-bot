@@ -1,8 +1,8 @@
-import { startProxy } from "@viem/anvil";
+import { createAnvil } from "@viem/anvil";
 import { ethers, JsonRpcProvider } from "ethers";
-import { getEnv, ISendTransaction, toHex, TransactionFactory } from "../utils";
-import { createPublicClient, http, PublicClient } from "viem";
+import { createPublicClient, http, PublicClient, toHex } from "viem";
 import { baseSepolia } from "viem/chains";
+import { getEnv } from "../utils/env";
 
 /**
  * The id of the current test worker.
@@ -25,7 +25,13 @@ function parseBlockNumber(blockNumber: string): number | undefined {
   return parsed;
 }
 
-export const setupAnvil = async () => {
+export const setupAnvil = async ({
+  loadState,
+  dumpState,
+}: {
+  loadState?: string;
+  dumpState?: string;
+}) => {
   const forkUrl = getEnv("FORK_URL");
   if (!forkUrl) {
     throw new Error("FORK_URL environment variable must be set");
@@ -34,17 +40,16 @@ export const setupAnvil = async () => {
   const forkBlockNumber = getEnv("FORK_BLOCK_NUMBER", "latest");
   const parsedBlockNumber = parseBlockNumber(forkBlockNumber);
 
-  return await startProxy({
-    options: {
-      forkUrl: forkUrl,
-      forkBlockNumber: parsedBlockNumber,
-      autoImpersonate: true,
-      stepsTracing: true,
-      disableBlockGasLimit: true,
-      blockTime: 0.01,
-      gasPrice: 0,
-    },
+  const anvil = createAnvil({
+    forkUrl: forkUrl,
+    forkBlockNumber: parsedBlockNumber,
+    autoImpersonate: true,
+    disableBlockGasLimit: true,
+    gasPrice: 0,
+    dumpState,
+    loadState,
   });
+  return anvil.start();
 };
 
 export const anvilProvider = new JsonRpcProvider(anvilRpcUrl);
@@ -61,32 +66,33 @@ export const anvilGetSigner = async (
   }
 };
 
-export const anvilSendTransaction: ISendTransaction = async (data) => {
-  if (!data.from) throw new Error("from address not set");
-  if (!anvilProvider) throw new Error("provider not initialized");
-  const signer = await anvilGetSigner(data.from, anvilProvider);
-  const tx = await signer.sendTransaction(data).catch((error) => {
-    if (error.code === "INSUFFICIENT_FUNDS") {
-      anvilProvider?.send("anvil_setBalance", [
-        data.from,
-        toHex(ethers.parseEther("10000")),
-      ]);
-      return signer.sendTransaction(data);
-    }
-    console.log(`Transaction send error: ${JSON.stringify(data)}`);
-    throw error;
-  });
+// export const anvilSendTransaction: ISendTransaction = async (data) => {
+//   if (!data.from) throw new Error("from address not set");
+//   if (!anvilProvider) throw new Error("provider not initialized");
+//   const signer = await anvilGetSigner(data.from, anvilProvider);
+//   const tx = await signer.sendTransaction(data).catch((error) => {
+//     if (error.code === "INSUFFICIENT_FUNDS") {
+//       anvilProvider?.send("anvil_setBalance", [
+//         data.from,
+//         toHex(ethers.parseEther("10000")),
+//       ]);
+//       return signer.sendTransaction(data);
+//     }
+//     console.log(`Transaction send error: ${JSON.stringify(data)}`);
+//     throw error;
+//   });
 
-  const receipt = await tx.wait();
-  if (receipt?.status === 0) {
-    throw new Error(`Transaction failed: ${JSON.stringify(receipt)}`);
-  }
-};
+//   const receipt = await tx.wait();
+//   if (receipt?.status === 0) {
+//     throw new Error(`Transaction failed: ${JSON.stringify(receipt)}`);
+//   }
+// };
 
-export const anvilTransactionFactory = new TransactionFactory(
-  anvilSendTransaction,
-  anvilProvider
-);
+// TODO: refactor Pike Client to use custom public client
+// export const anvilPikeClient = new PikeClient(
+//   anvilSendTransaction,
+//   anvilProvider
+// );
 
 export const anvilPublicClient = createPublicClient({
   chain: baseSepolia,
