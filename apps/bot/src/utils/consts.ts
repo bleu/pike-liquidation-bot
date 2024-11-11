@@ -18,7 +18,8 @@ export const getUnderlying = (pToken: Address) => {
 };
 
 export const getDecimals = (token: Address) => {
-  if (token === WETH || token === stETH) return 18n;
+  // @ts-ignore
+  if ([WETH, stETH, pUSDC, pWETH, pstETH].includes(token)) return 18n;
   if (token === USDC) return 6n;
   throw new Error(`Unknown token: ${token}`);
 };
