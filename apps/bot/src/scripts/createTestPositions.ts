@@ -1,5 +1,6 @@
-import { privateKeyToAccount } from "viem/accounts";
-import { Address, createWalletClient, parseUnits } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import * as fs from "fs";
+import { Address, createWalletClient, parseEther, parseUnits } from "viem";
 import { baseSepolia } from "viem/chains";
 import {
   createWalletClientFromPrivateKey,
@@ -11,6 +12,7 @@ import { executeOnFutureBlock } from "../utils/executeOnBlock";
 import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "../utils/contracts";
 import { getDecimals, getUnderlying } from "../utils/consts";
 import { getEnv } from "../utils/env";
+import { MaxUint256 } from "ethers";
 
 export type WalletInfo = {
   address: Address;
@@ -26,22 +28,20 @@ const funderClient = new PikeClient(
 async function createUsers(n: number) {
   // Random wallets are created and logged on a json file
   // All wallets receive 0.1 Eth to pay for gas fees from the funder wallet
-  // const walletsInfo: WalletInfo[] = [];
+  const walletsInfo: WalletInfo[] = [];
   const users: PikeClient[] = [];
 
   for (let i = 0; i < n; i++) {
     // Create a new random wallet
-    // const randomPrivateKey = generatePrivateKey();
-    const wallet = privateKeyToAccount(
-      getEnv(`USER_PRIVATE_KEY_${i}`) as `0x${string}`
-    );
+    const randomPrivateKey = generatePrivateKey();
+    const wallet = privateKeyToAccount(randomPrivateKey);
 
-    // const walletInfo = {
-    //   address: wallet.address,
-    //   privateKey: randomPrivateKey,
-    // };
+    const walletInfo = {
+      address: wallet.address,
+      privateKey: randomPrivateKey,
+    };
 
-    // walletsInfo.push(walletInfo);
+    walletsInfo.push(walletInfo);
     users.push(
       new PikeClient(
         createWalletClient({ account: wallet, chain: baseSepolia, transport })
@@ -49,17 +49,17 @@ async function createUsers(n: number) {
     );
   }
 
-  // fs.writeFileSync(
-  //   "sepolia-wallets.json",
-  //   JSON.stringify(walletsInfo, null, 2)
-  // );
+  fs.writeFileSync(
+    "sepolia-wallets.json",
+    JSON.stringify(walletsInfo, null, 2)
+  );
 
-  // for (const walletInfo of walletsInfo) {
-  //   await funderClient.sendEth({
-  //     to: walletInfo.address,
-  //     amount: parseEther("0.01"),
-  //   });
-  // }
+  for (const walletInfo of walletsInfo) {
+    await funderClient.sendEth({
+      to: walletInfo.address,
+      amount: parseEther("0.01"),
+    });
+  }
 
   return users;
 }
@@ -152,7 +152,8 @@ async function createPositionUserC(user: PikeClient) {
 
 async function createPositionUserD(user: PikeClient) {
   // user D deposit WETH and borrow USDC and stETH
-  // after some blocks the user D repay partially the USDC loan
+  // after some blocks the user D repay totally the USDC loan
+  // and redeem partially the WETH deposit
 
   const position = {
     deposits: [
@@ -168,18 +169,23 @@ async function createPositionUserD(user: PikeClient) {
       },
       {
         pToken: pstETH,
-        amount: parseUnits("0.1", Number(getDecimals(stETH))),
+        amount: parseUnits("0.01", Number(getDecimals(stETH))),
       },
     ],
   };
 
   await user.createPositionRecipe(position);
-
-  await executeOnFutureBlock(5, async () => {
-    await user.repayToken({
-      pToken: pUSDC,
-      amount: parseUnits("50", Number(getDecimals(USDC))),
-    });
+  await user.approveToken({
+    token: USDC,
+    spender: pUSDC,
+  });
+  await user.repayToken({
+    pToken: pUSDC,
+    amount: MaxUint256,
+  });
+  await user.redeemToken({
+    pToken: pWETH,
+    amount: parseUnits("0.01", Number(getDecimals(pWETH))),
   });
 }
 
@@ -197,18 +203,21 @@ async function createPositionUserE(user: PikeClient) {
     borrows: [
       {
         pToken: pstETH,
-        amount: parseUnits("0.1", Number(getDecimals(stETH))),
+        amount: parseUnits("0.05", Number(getDecimals(stETH))),
       },
     ],
   };
 
   await user.createPositionRecipe(position);
 
-  await executeOnFutureBlock(10, async () => {
-    await user.repayToken({
-      pToken: pstETH,
-      amount: parseUnits("0.05", Number(getDecimals(stETH))),
-    });
+  await user.approveToken({
+    token: stETH,
+    spender: pstETH,
+  });
+
+  await user.repayToken({
+    pToken: pstETH,
+    amount: parseUnits("0.01", Number(getDecimals(stETH))),
   });
 }
 
@@ -261,23 +270,21 @@ async function main() {
   console.log(`Users created`);
   await funderDepositLiquidity();
   console.log(`Funder deposited liquidity`);
-  await Promise.all([
-    createPositionUserA(wallets[0]).then(() =>
-      console.log("Position A created")
-    ),
-    createPositionUserB(wallets[1]).then(() =>
-      console.log("Position B created")
-    ),
-    createPositionUserC(wallets[2]).then(() =>
-      console.log("Position C created")
-    ),
-    createPositionUserD(wallets[3]).then(() =>
-      console.log("Position D created")
-    ),
-    createPositionUserE(wallets[4]).then(() =>
-      console.log("Position E created")
-    ),
-  ]);
+  await createPositionUserA(wallets[0]).then(() =>
+    console.log("Position A created")
+  );
+  await createPositionUserB(wallets[1]).then(() =>
+    console.log("Position B created")
+  );
+  await createPositionUserC(wallets[2]).then(() =>
+    console.log("Position C created")
+  );
+  await createPositionUserD(wallets[3]).then(() =>
+    console.log("Position D created")
+  );
+  await createPositionUserE(wallets[4]).then(() =>
+    console.log("Position E created")
+  );
   console.log(`Positions created`);
   await manipulatePrices();
   console.log(`Prices manipulated`);
@@ -285,12 +292,4 @@ async function main() {
   console.log(`final block: ${finalBlock}`);
 }
 
-// async function returnFunds() {
-//   await funderClient.sendEth({
-//     amount: parseEther("0.09"),
-//     to: "0x76b0340e50BD9883D8B2CA5fd9f52439a9e7Cf58",
-//   });
-// }
-
 main();
-// returnFunds();
