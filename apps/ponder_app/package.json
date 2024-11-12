@@ -1,5 +1,5 @@
 {
-  "name": "ponder_app",
+  "name": "@pike-liq-bot/ponder",
   "private": true,
   "type": "module",
   "scripts": {
