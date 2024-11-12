@@ -4,14 +4,21 @@ import { Address, createWalletClient, parseEther, parseUnits } from "viem";
 import { baseSepolia } from "viem/chains";
 import {
   createWalletClientFromPrivateKey,
+  PikeClient,
   publicClient,
   transport,
-} from "../clients";
-import { PikeClient } from "../transactions";
-import { executeOnFutureBlock } from "../utils/executeOnBlock";
-import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "../utils/contracts";
-import { getDecimals, getUnderlying } from "../utils/consts";
-import { getEnv } from "../utils/env";
+} from "../src/clients";
+import { executeOnFutureBlock } from "../src/utils/executeOnBlock";
+import {
+  pstETH,
+  pUSDC,
+  pWETH,
+  stETH,
+  USDC,
+  WETH,
+} from "../src/utils/contracts";
+import { getDecimals, getUnderlying } from "../src/utils/consts";
+import { getEnv } from "../src/utils/env";
 import { MaxUint256 } from "ethers";
 
 export type WalletInfo = {
@@ -20,9 +27,7 @@ export type WalletInfo = {
 };
 
 const funderClient = new PikeClient(
-  createWalletClientFromPrivateKey(
-    getEnv("FUNDER_PRIVATE_KEY") as `0x${string}`
-  )
+  createWalletClientFromPrivateKey(getEnv("BOT_PRIVATE_KEY") as `0x${string}`)
 );
 
 async function createUsers(n: number) {
@@ -221,47 +226,6 @@ async function createPositionUserE(user: PikeClient) {
   });
 }
 
-async function manipulatePrices() {
-  // initial prices:
-  // 1 USDC -> 1 USD
-  // 1 WETH and stETH -> 2000 USD
-
-  // USDC price is set to 0.5 USD, wait 5 blocks and get back
-  await funderClient.setOraclePrice({
-    token: USDC,
-    price: parseUnits("0.5", 6),
-  });
-  await funderClient.setOraclePrice({
-    token: USDC,
-    price: parseUnits("1", 6),
-  });
-
-  // stETH price is set to 5000 USD, wait 5 blocks and get back
-  await funderClient.setOraclePrice({
-    token: stETH,
-    price: parseUnits("5000", 6),
-  });
-  await executeOnFutureBlock(5, async () => {
-    await funderClient.setOraclePrice({
-      token: pstETH,
-      price: parseUnits("2000", 6),
-    });
-  });
-
-  // WETH price is set to 1000 USD, wait 5 blocks and get back
-  await funderClient.setOraclePrice({
-    token: WETH,
-    price: parseUnits("1000", 6),
-  });
-  await executeOnFutureBlock(5, async () => {
-    // Set WETH price to 1000 USD
-    await funderClient.setOraclePrice({
-      token: WETH,
-      price: parseUnits("1000", 6),
-    });
-  });
-}
-
 async function main() {
   // Generate 5 wallets
   const initialBlock = await publicClient.getBlockNumber();
@@ -286,8 +250,6 @@ async function main() {
     console.log("Position E created")
   );
   console.log(`Positions created`);
-  await manipulatePrices();
-  console.log(`Prices manipulated`);
   const finalBlock = await publicClient.getBlockNumber();
   console.log(`final block: ${finalBlock}`);
 }
