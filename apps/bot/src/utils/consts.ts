@@ -24,5 +24,24 @@ export const getDecimals = (token: Address) => {
   throw new Error(`Unknown token: ${token}`);
 };
 
+export const getSymbol = (token: Address) => {
+  switch (token) {
+    case WETH:
+      return "WETH";
+    case USDC:
+      return "USDC";
+    case stETH:
+      return "stETH";
+    case pWETH:
+      return "pWETH";
+    case pUSDC:
+      return "pUSDC";
+    case pstETH:
+      return "pstETH";
+    default:
+      throw new Error(`Unknown token: ${token}`);
+  }
+};
+
 export const initialCF = BigInt(75e16);
 export const initialLF = BigInt(90e16);
