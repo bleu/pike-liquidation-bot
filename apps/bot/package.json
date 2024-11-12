@@ -2,8 +2,10 @@
   "name": "@pike-liq-bot/bot",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@ethersproject/providers": "^5.7.2",
+    "@pike-liq-bot/utils": "workspace:*",
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.4",
@@ -22,6 +24,7 @@
     "@types/mocha": "^10.0.9",
     "jest": "^29.7.0",
     "sort-package-json": "2.10.0",
+    "tsx": "^4.19.2",
     "vitest": "^2.1.4"
   }
 }

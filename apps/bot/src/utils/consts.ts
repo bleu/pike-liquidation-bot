@@ -1,5 +1,5 @@
 import { Address } from "viem";
-import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "./contracts";
+import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "@pike-liq-bot/utils";
 
 export const defaultAddresses = [
   "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",

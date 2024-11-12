@@ -1,11 +1,8 @@
 import { expect, describe, it } from "vitest";
 
-import { LiquidationBot } from "../../src/liquidationBot";
-import {
-  createWalletClientFromPrivateKey,
-  PikeClient,
-} from "../../src/clients";
-import { getEnv } from "../../src/utils/env";
+import { LiquidationBot } from "#/liquidationBot";
+import { createWalletClientFromPrivateKey, PikeClient } from "#/clients";
+import { getEnv } from "#/utils/env";
 import {
   initialPricesBlock,
   positionUserA,

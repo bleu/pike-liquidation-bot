@@ -1,12 +1,8 @@
 import { Address, parseUnits } from "viem";
-import {
-  createWalletClientFromPrivateKey,
-  PikeClient,
-  publicClient,
-} from "../src/clients";
-import { stETH, USDC, WETH } from "../src/utils/contracts";
-import { getSymbol } from "../src/utils/consts";
-import { getEnv } from "../src/utils/env";
+import { createWalletClientFromPrivateKey, PikeClient } from "#/clients";
+import { stETH, USDC, WETH } from "@pike-liq-bot/utils";
+import { getSymbol } from "#/utils/consts";
+import { getEnv } from "#/utils/env";
 
 export type WalletInfo = {
   address: Address;

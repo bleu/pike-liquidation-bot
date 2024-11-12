@@ -1,6 +1,6 @@
-import { pstETH, pUSDC, pWETH } from "../src/utils/contracts";
+import { pstETH, pUSDC, pWETH } from "@pike-liq-bot/utils";
 
-export const userA = "0x62dd5bf48a9dc65113df25b3c68d01a7c161bb63" as const;
+export const userA = "0x62dd5BF48A9DC65113DF25B3C68d01A7c161BB63" as const;
 export const userB = "0x87A02bD69cFa511FaccC97CD339e16243daF4a5E" as const;
 export const userC = "0x96520Fb8FE267034e23aCcBD4940dfB4648e7C3A" as const;
 export const userD = "0xCbe2195005c4B8692DbCCA5FA9511DE2eFa32C8d" as const;

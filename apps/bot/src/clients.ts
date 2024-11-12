@@ -3,14 +3,17 @@ import { getEnv } from "./utils/env";
 import { baseSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { type Address, type WalletClient } from "viem";
-import { mockOracle, riskEngine } from "./utils/contracts";
 import { MaxUint256 } from "ethers";
 import { getDecimals, getUnderlying } from "./utils/consts";
 import { encodeFunctionData } from "viem";
-import { mockOracleAbi } from "./abis/mockOracleAbi";
-import { mockTokenAbi } from "./abis/mockTokenAbi";
-import { pTokenAbi } from "./abis/pTokenAbi";
-import { riskEngineAbi } from "./abis/riskEngineAbi";
+import {
+  mockOracleAbi,
+  mockTokenAbi,
+  pTokenAbi,
+  riskEngineAbi,
+  mockOracle,
+  riskEngine,
+} from "@pike-liq-bot/utils";
 
 export const chain = baseSepolia;
 export const transport = http(getEnv("FORK_URL"));

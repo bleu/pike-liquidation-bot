@@ -1,11 +1,11 @@
 import { expect, describe, it, vi, beforeEach } from "vitest";
-import { LiquidationBot } from "../../src/liquidationBot";
-import { publicClient, PikeClient } from "../../src/clients";
+import { LiquidationBot } from "#/liquidationBot";
+import { publicClient, PikeClient } from "#/clients";
 import { positionUserA, userA, userB } from "../consts";
 
 // Mock the publicClient
-vi.mock("../../src/clients", async () => {
-  const actual = await vi.importActual("../../src/clients");
+vi.mock("#/clients", async () => {
+  const actual = await vi.importActual("#/clients");
   return {
     ...actual,
     publicClient: {

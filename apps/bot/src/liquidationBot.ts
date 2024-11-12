@@ -1,7 +1,5 @@
-import { Address, encodeFunctionData } from "viem";
-import { pTokenAbi } from "./abis/pTokenAbi";
-import { riskEngine } from "./utils/contracts";
-import { riskEngineAbi } from "./abis/riskEngineAbi";
+import { Address } from "viem";
+import { riskEngine, pTokenAbi, riskEngineAbi } from "@pike-liq-bot/utils";
 import { PikeClient, publicClient } from "./clients";
 
 export class LiquidationBot {

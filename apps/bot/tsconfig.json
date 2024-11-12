@@ -1,16 +1,20 @@
-// tsconfig.json
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "ESNext",        // Changed from CommonJS
+    "moduleResolution": "bundler",  // Changed from node
     "esModuleInterop": true,
     "allowJs": true,
     "strict": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./src",
+    "paths": {
+      "#/*": ["./*"],
+      "@pike-liq-bot/utils": ["../../../packages/utils/src"]
+    }
   },
-  "include": ["src/**/*", "src/example", "test/**/*", "scripts/**/*"],
+  "include": ["src/**/*", "test/**/*", "scripts/**/*"],
   "exclude": ["node_modules"]
 }

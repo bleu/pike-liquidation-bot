@@ -7,18 +7,10 @@ import {
   PikeClient,
   publicClient,
   transport,
-} from "../src/clients";
-import { executeOnFutureBlock } from "../src/utils/executeOnBlock";
-import {
-  pstETH,
-  pUSDC,
-  pWETH,
-  stETH,
-  USDC,
-  WETH,
-} from "../src/utils/contracts";
-import { getDecimals, getUnderlying } from "../src/utils/consts";
-import { getEnv } from "../src/utils/env";
+} from "#/clients";
+import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "@pike-liq-bot/utils";
+import { getDecimals, getUnderlying } from "#/utils/consts";
+import { getEnv } from "#/utils/env";
 import { MaxUint256 } from "ethers";
 
 export type WalletInfo = {
