@@ -33,7 +33,7 @@ export default createSchema((p) => ({
       balance: p.bigint(), // pToken balance
       borrowed: p.bigint(), // Amount borrowed
       borrowIndex: p.bigint(), // User's borrow index in market
-      isCollateral: p.boolean(), // Used as collateral?
+      isOnMarket: p.boolean(), // User is on market
       lastUpdated: p.bigint(), // Last update timestamp
     },
     {

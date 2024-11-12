@@ -1,4 +1,3 @@
-// src/handlers.ts
 import { ponder } from "@/generated";
 
 const defaultMarketData = {
@@ -346,7 +345,7 @@ ponder.on("pToken:Mint", async ({ event, context }) => {
           balance: mintTokens,
           borrowed: 0n,
           borrowIndex: 0n, // Initialize appropriately
-          isCollateral: false, // Set based on your logic
+          isOnMarket: false, // Set based on your logic
           lastUpdated: timestamp,
         },
       });
@@ -403,7 +402,7 @@ ponder.on("pToken:Borrow", async ({ event, context }) => {
           balance: 0n,
           borrowed: borrowAmount,
           borrowIndex: accountBorrows, // Initialize appropriately
-          isCollateral: false, // Set based on your logic
+          isOnMarket: true, // Set based on your logic
           lastUpdated: timestamp,
         },
       });
@@ -562,37 +561,6 @@ ponder.on("pToken:LiquidateBorrow", async ({ event, context }) => {
         timestamp: timestamp,
       },
     });
-
-    // Update liquidator's Position
-    const liquidatorPositionId = `${collateralMarketId}-${liquidator}`;
-    const liquidatorPosition = await Position.findUnique({
-      id: liquidatorPositionId,
-    });
-
-    if (liquidatorPosition) {
-      await Position.update({
-        id: liquidatorPositionId,
-        data: {
-          balance: liquidatorPosition.balance + seizeTokens,
-          lastUpdated: timestamp,
-        },
-      });
-    } else {
-      await Position.create({
-        id: liquidatorPositionId,
-        data: {
-          marketId: collateralMarketId,
-          userAddress: liquidator,
-          balance: seizeTokens,
-          borrowed: 0n,
-          borrowIndex: 0n, // Initialize appropriately
-          isCollateral: false, // Set based on your logic
-          lastUpdated: timestamp,
-        },
-      });
-    }
-
-    console.log(`LiquidateBorrow transaction recorded: ${txHash}`);
   } catch (error) {
     console.error(
       `Error recording LiquidateBorrow transaction ${txHash}:`,
@@ -680,7 +648,7 @@ ponder.on("pToken:Transfer", async ({ event, context }) => {
           balance: value,
           borrowed: 0n,
           borrowIndex: 0n, // Initialize appropriately
-          isCollateral: false, // Set based on your logic
+          isOnMarket: false, // Set based on your logic
           lastUpdated: timestamp,
         },
       });
@@ -692,23 +660,53 @@ ponder.on("pToken:Transfer", async ({ event, context }) => {
   }
 });
 
-// Handler for Approval event
-ponder.on("pToken:Approval", async ({ event, context }) => {
-  const { Delegate } = context.db;
-  const { owner, spender, value } = event.args;
-  const txHash = event.transaction.hash;
-  const logIndex = event.log.logIndex;
-  const timestamp = BigInt(event.block.timestamp);
-  const marketId = event.log.address; // pToken address
+ponder.on("RiskEngine:MarketEntered", async ({ event, context }) => {
+  const { Position } = context.db;
+  const { pToken, account } = event.args;
 
-  try {
-    // Since your schema's Delegate table is for nested permissions,
-    // and not general ERC20 allowances, you can choose to ignore or log Approval events.
-    // For simplicity, we'll log them here.
-    console.log(
-      `Approval event: ${owner} approved ${spender} to spend ${value} on ${marketId}`
-    );
-  } catch (error) {
-    console.error(`Error handling Approval event ${txHash}:`, error);
+  const positionId = `${pToken}-${account}`;
+
+  const existingPosition = await Position.findUnique({ id: positionId });
+
+  if (existingPosition) {
+    await Position.update({
+      id: positionId,
+      data: {
+        isOnMarket: true,
+      },
+    });
+  } else {
+    await Position.create({
+      id: positionId,
+      data: {
+        marketId: pToken,
+        userAddress: account,
+        balance: 0n,
+        borrowed: 0n,
+        borrowIndex: 0n,
+        isOnMarket: true,
+        lastUpdated: event.block.timestamp,
+      },
+    });
+  }
+});
+
+ponder.on("RiskEngine:MarketExited", async ({ event, context }) => {
+  const { Position } = context.db;
+  const { pToken, account } = event.args;
+
+  const positionId = `${pToken}-${account}`;
+
+  const existingPosition = await Position.findUnique({ id: positionId });
+
+  if (existingPosition) {
+    await Position.update({
+      id: positionId,
+      data: {
+        isOnMarket: false,
+      },
+    });
+  } else {
+    console.warn(`MarketExited event for non-existing position: ${positionId}`);
   }
 });
