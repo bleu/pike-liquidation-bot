@@ -10,8 +10,13 @@ To perform the tests a mock of all the contracts were deployed, this bot will be
 4. User D(0xCbe2195005c4B8692DbCCA5FA9511DE2eFa32C8d): Deposited WETH and borrowed USDC and stETH. After some blocks, repaid totally the USDC loan and redeemed partially the WETH deposit.
 5. User E(0x0E10f9A63A7800fE4c657334dd6543068ab8A50D): Deposited WETH and borrowed stETH. After some blocks, repaid partially the stETH loan
 
-After all these positions were created, the mock oracle was manipulated between blocks 17786638 and 17786669 by:
-1. USDC price changed to 0.5 USD and back to 1 after some blocks.
-2. stETH price changed to 5000 USD and back to 2000 USD after some blocks.
-3. WETH price is set to 1000 USD and back to 2000 USD after some blocks.
-
+After all these positions were created, the mock oracle was manipulated between blocks 17828742 and 17828769 by:
+- USDC price dropped at block 17828742
+- USDC price increased at block 17828746
+- USDC price restored
+- WETH price dropped at block 17828753
+- WETH price increased at block 17828757
+- WETH price restored
+- stETH price dropped at block 17828765
+- stETH price increased at block 17828769
+- stETH price restored
