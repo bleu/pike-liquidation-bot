@@ -1,72 +1,60 @@
 // src/schema/ponder.schema.ts
-import { createSchema } from "@ponder/core";
+import { onchainTable, primaryKey, relations } from "@ponder/core";
 
-export default createSchema((p) => ({
-  // Markets represent lending pools with risk parameters
-  Market: p.createTable({
-    id: p.string(), // Market (rToken) address
-    supplyCap: p.bigint(), // Supply cap
-    borrowCap: p.bigint(), // Borrow cap
-    collateralFactor: p.bigint(), // Collateral factor
-    liquidationThreshold: p.bigint(), // Liquidation threshold
-    reserveFactorMantissa: p.bigint(), // Reserve factor
-    protocolSeizeShareMantissa: p.bigint(), // Protocol seize share
-    riskEngine: p.string(), // RiskEngine address
-    initialExchangeRateMantissa: p.bigint(), // Initial exchange rate
-    borrowRateMaxMantissa: p.bigint(), // Maximum borrow rate
-    baseRatePerSecond: p.bigint(), // Base rate per second
-    multiplierPerSecond: p.bigint(), // Multiplier per second
-    firstJumpMultiplierPerSecond: p.bigint(), // First jump multiplier per second
-    secondJumpMultiplierPerSecond: p.bigint(), // Second jump multiplier per second
-    firstKink: p.bigint(), // First kink
-    secondKink: p.bigint(), // Second kink
-    isListed: p.boolean(), // Market listing status
-    lastUpdated: p.bigint(), // Last update timestamp
+export const market = onchainTable("market", (t) => ({
+  id: t.hex().primaryKey(), // Market (rToken) address
+  supplyCap: t.bigint().default(0n), // Supply cap
+  borrowCap: t.bigint().default(0n), // Borrow cap
+  collateralFactor: t.bigint().default(0n), // Collateral factor
+  liquidationThreshold: t.bigint().default(0n), // Liquidation threshold
+  reserveFactorMantissa: t.bigint().default(0n), // Reserve factor
+  protocolSeizeShareMantissa: t.bigint().default(0n), // Protocol seize share
+  riskEngine: t.hex().default("0x0000000000000000000000000000000000000000"), // RiskEngine address
+  initialExchangeRateMantissa: t.bigint().default(0n), // Initial exchange rate
+  borrowRateMaxMantissa: t.bigint().default(0n), // Maximum borrow rate
+  baseRatePerSecond: t.bigint().default(0n), // Base rate per second
+  multiplierPerSecond: t.bigint().default(0n), // Multiplier per second
+  firstJumpMultiplierPerSecond: t.bigint().default(0n), // First jump multiplier per second
+  secondJumpMultiplierPerSecond: t.bigint().default(0n), // Second jump multiplier per second
+  firstKink: t.bigint().default(0n), // First kink
+  secondKink: t.bigint().default(0n), // Second kink
+  isListed: t.boolean().default(false), // Market listing status
+  lastUpdated: t.bigint().default(0n), // Last update timestamp
+}));
+
+export const user = onchainTable("user", (t) => ({
+  id: t.hex().primaryKey(), // User address
+  lastUpdated: t.bigint().notNull(), // Last update timestamp
+}));
+
+export const position = onchainTable(
+  "position",
+  (t) => ({
+    id: t.uuid(), // Position ID
+    marketId: t.hex().notNull(), // Market (rToken) address
+    userId: t.hex().notNull(), // User address
+    balance: t.bigint().notNull(), // pToken balance
+    borrowed: t.bigint().notNull(), // Amount borrowed
+    isOnMarket: t.boolean().notNull(), // User is on market
+    lastUpdated: t.bigint().notNull(), // Last update timestamp
   }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.marketId, table.userId] }),
+  })
+);
 
-  // User positions in markets
-  Position: p.createTable(
-    {
-      id: p.string(), // {market}-{user} composite
-      marketId: p.string().references("Market.id"),
-      userAddress: p.string(), // User address
-      balance: p.bigint(), // pToken balance
-      borrowed: p.bigint(), // Amount borrowed
-      borrowIndex: p.bigint(), // User's borrow index in market
-      isOnMarket: p.boolean(), // User is on market
-      lastUpdated: p.bigint(), // Last update timestamp
-    },
-    {
-      byUser: p.index("userAddress"),
-      byMarket: p.index("marketId"),
-      byUserMarket: p.index(["userAddress", "marketId"]),
-    }
-  ),
+export const usersRelations = relations(user, ({ many }) => ({
+  positions: many(position),
+}));
 
-  // Delegate permissions
-  Delegate: p.createTable({
-    id: p.string(), // {permission}-{nestedAddress}-{target} composite
-    permission: p.string(), // Permission identifier (bytes32 as hex string)
-    nestedAddress: p.string(), // Nested contract address
-    target: p.string(), // Target address
-    approved: p.boolean(), // Approval status
-    lastUpdated: p.bigint(), // Last update timestamp
+export const marketsRelations = relations(market, ({ many }) => ({
+  positions: many(position),
+}));
+
+export const positionsRelations = relations(position, ({ one }) => ({
+  user: one(user, { fields: [position.userId], references: [user.id] }),
+  market: one(market, {
+    fields: [position.marketId],
+    references: [market.id],
   }),
-
-  // Transaction history for mint/burn/borrow/repay
-  Transaction: p.createTable(
-    {
-      id: p.string(), // Transaction hash + log index + type (to ensure uniqueness)
-      marketId: p.string().references("Market.id"),
-      userAddress: p.string(), // User address
-      type: p.string(), // Transaction type (mint, redeem, borrow, repay, liquidate, transfer_in, transfer_out)
-      amount: p.bigint(), // Transaction amount
-      timestamp: p.bigint(), // Transaction timestamp
-    },
-    {
-      byUser: p.index("userAddress"),
-      byMarket: p.index("marketId"),
-      byTimestamp: p.index("timestamp"),
-    }
-  ),
 }));
