@@ -1,5 +1,5 @@
 import { Address } from "viem";
-import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "./contracts";
+import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "@pike-liq-bot/utils";
 
 export const defaultAddresses = [
   "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
@@ -22,6 +22,25 @@ export const getDecimals = (token: Address) => {
   if ([WETH, stETH, pUSDC, pWETH, pstETH].includes(token)) return 18n;
   if (token === USDC) return 6n;
   throw new Error(`Unknown token: ${token}`);
+};
+
+export const getSymbol = (token: Address) => {
+  switch (token) {
+    case WETH:
+      return "WETH";
+    case USDC:
+      return "USDC";
+    case stETH:
+      return "stETH";
+    case pWETH:
+      return "pWETH";
+    case pUSDC:
+      return "pUSDC";
+    case pstETH:
+      return "pstETH";
+    default:
+      throw new Error(`Unknown token: ${token}`);
+  }
 };
 
 export const initialCF = BigInt(75e16);

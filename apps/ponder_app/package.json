@@ -11,7 +11,8 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@ponder/core": "^0.6.22",
+    "@pike-liq-bot/utils": "workspace:*",
+    "@ponder/core": "^0.7.0",
     "hono": "^4.5.0",
     "viem": "^2.21.3"
   },

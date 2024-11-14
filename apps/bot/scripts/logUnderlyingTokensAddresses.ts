@@ -1,6 +1,5 @@
-import { pTokenAbi } from "../abis/pTokenAbi";
-import { publicClient } from "../clients";
-import { pstETH, pUSDC, pWETH } from "../utils/contracts";
+import { publicClient } from "#/clients";
+import { pstETH, pTokenAbi, pUSDC, pWETH } from "@pike-liq-bot/utils";
 
 async function logUnderlyingTokensAddresses() {
   const ret = await publicClient.multicall({

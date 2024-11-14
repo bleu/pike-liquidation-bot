@@ -26,3 +26,6 @@ deployments/*
 coverage
 lcov.info
 .turbo
+sepolia-wallets.json
+.vscode/
+**/dist/**

@@ -1,16 +1,22 @@
-// tsconfig.json
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "target": "ESNext",           // Changed from ES2020 to support all modern features
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "allowJs": true,
     "strict": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./src",
+    "paths": {
+      "#/*": ["./*"],
+      "@pike-liq-bot/utils": ["../../../packages/utils/src"]
+    },
+    "isolatedModules": true,     // Added for better module handling
+    "noEmit": true              // Added since we're using tsx for execution
   },
-  "include": ["src/**/*", "src/example", "test/**/*"],
+  "include": ["src/**/*", "test/**/*", "scripts/**/*"],
   "exclude": ["node_modules"]
 }
