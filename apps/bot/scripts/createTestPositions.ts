@@ -7,7 +7,7 @@ import {
   PikeClient,
   publicClient,
   transport,
-} from "#/clients";
+} from "#/services/clients";
 import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "@pike-liq-bot/utils";
 import { getDecimals, getUnderlying } from "#/utils/consts";
 import { getEnv } from "#/utils/env";

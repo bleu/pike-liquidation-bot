@@ -1,7 +1,7 @@
 import { gql, GraphQLClient } from "graphql-request";
 
 import { type Address } from "viem";
-import { AllUserPositions, UserPositionData } from "./types";
+import { AllUserPositions, UserPositionData } from "../types";
 
 export const gqlClient = new GraphQLClient("http://localhost:42069/");
 
