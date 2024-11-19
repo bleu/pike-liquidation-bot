@@ -1,0 +1,9 @@
+[submodule "liquidator-contracts/lib/openzeppelin-contracts"]
+	path = liquidator-contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "liquidator-contracts/lib/v3-core"]
+	path = liquidator-contracts/lib/v3-core
+	url = https://github.com/Uniswap/v3-core
+[submodule "liquidator-contracts/lib/v3-periphery"]
+	path = liquidator-contracts/lib/v3-periphery
+	url = https://github.com/Uniswap/v3-periphery
