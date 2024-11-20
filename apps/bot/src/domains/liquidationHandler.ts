@@ -1,13 +1,17 @@
 import { Address } from "viem";
-import { ContractReader } from "../services/contractReader";
-import { PikeClient } from "../services/clients";
-import { riskEngine, riskEngineAbi, pTokenAbi } from "@pike-liq-bot/utils";
+
+import { PTokenService } from "#/infrastructure/blockchain/services/PTokenService";
+import { RiskEngineService } from "#/infrastructure/blockchain/services/RiskEngineService";
+import { publicClient } from "#/utils/clients";
 
 export class LiquidationHandler {
-  constructor(
-    private readonly contractReader: ContractReader,
-    private readonly pikeClient: PikeClient
-  ) {}
+  private readonly riskEngine: RiskEngineService;
+  private readonly pTokenService: PTokenService;
+
+  constructor() {
+    this.riskEngine = new RiskEngineService(undefined, publicClient);
+    this.pTokenService = new PTokenService(undefined, publicClient);
+  }
 
   async checkLiquidationAllowed({
     borrowPToken,
@@ -22,11 +26,11 @@ export class LiquidationHandler {
     amountToLiquidate: bigint;
     blockNumber?: bigint;
   }) {
-    const liquidationErrorCode = await this.contractReader.readContract({
-      address: riskEngine,
-      abi: riskEngineAbi,
-      functionName: "liquidateBorrowAllowed",
-      args: [borrowPToken, collateralPToken, borrower, amountToLiquidate],
+    const liquidationErrorCode = await this.riskEngine.liquidateBorrowAllowed({
+      borrowPToken,
+      borrower,
+      collateralPToken,
+      amountToLiquidate,
       blockNumber,
     });
 
@@ -44,13 +48,11 @@ export class LiquidationHandler {
     collateralPToken: Address;
     blockNumber?: bigint;
   }) {
-    const amount = (await this.contractReader.readContract({
-      address: borrowPToken,
-      abi: pTokenAbi,
-      functionName: "borrowBalanceCurrent",
-      args: [borrower],
+    const amount = await this.pTokenService.borrowBalanceCurrent({
+      borrowPToken,
+      borrower,
       blockNumber,
-    })) as bigint;
+    });
 
     const amountToLiquidate = amount / 2n;
 

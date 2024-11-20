@@ -1,4 +1,4 @@
-import { publicClient } from "#/services/clients";
+import { publicClient } from "#/utils/clients";
 import { pstETH, pTokenAbi, pUSDC, pWETH } from "@pike-liq-bot/utils";
 
 async function logUnderlyingTokensAddresses() {

@@ -1,12 +1,11 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { LiquidationHandler } from "#/handlers/liquidationHandler";
-import { ContractReader } from "#/services/contractReader";
-import { publicClient } from "#/services/clients";
+import { LiquidationHandler } from "#/domains/liquidationHandler";
+import { publicClient } from "#/utils/clients";
 import { riskEngine, pWETH, pUSDC } from "@pike-liq-bot/utils";
-import { PikeClient } from "#/services/clients";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
+import { PikeClient } from "#/infrastructure/blockchain/services/PikeClient";
 
 vi.mock("#/services/clients", async () => {
   const actual = await vi.importActual("#/services/clients");
@@ -43,8 +42,7 @@ describe("LiquidationHandler", () => {
     // Initialize mocked PikeClient
     mockPikeClient = new PikeClient(mockWalletClient);
 
-    const contractReader = new ContractReader(publicClient);
-    liquidationHandler = new LiquidationHandler(contractReader, mockPikeClient);
+    liquidationHandler = new LiquidationHandler();
   });
 
   test("should check if liquidation is allowed", async () => {

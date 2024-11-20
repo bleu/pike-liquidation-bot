@@ -1,15 +1,13 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import { PositionHandler } from "#/handlers/positionHandler";
-import { PriceHandler } from "#/handlers/priceHandler";
-import { ContractReader } from "#/services/contractReader";
+import { PositionHandler } from "#/domains/positionHandler";
+import { PriceHandler } from "#/domains/priceHandler";
+import { pUSDC, pWETH, pstETH } from "@pike-liq-bot/utils";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   mockUserAPosition,
   mockUserBPosition,
   mockUserCPosition,
   userA,
 } from "../mocks/utils";
-import { publicClient } from "#/services/clients";
-import { pUSDC, pWETH, pstETH } from "@pike-liq-bot/utils";
 
 vi.mock("#/services/clients", async () => {
   const actual = await vi.importActual("#/services/clients");
@@ -31,8 +29,7 @@ describe("PositionHandler", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const contractReader = new ContractReader(publicClient);
-    priceHandler = new PriceHandler(contractReader);
+    priceHandler = new PriceHandler();
     positionHandler = new PositionHandler(priceHandler);
 
     // Initialize price handler

@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { BlockMonitor } from "#/services/blockMonitor";
+import { BlockMonitor } from "#/application/blockMonitor";
 import { createMockBlock } from "../mocks/utils";
-import { publicClient } from "#/services/clients";
+import { publicClient } from "#/utils/clients";
 import type { Block } from "viem";
 
 vi.mock("#/services/clients", async () => {

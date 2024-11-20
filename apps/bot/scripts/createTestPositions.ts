@@ -4,10 +4,10 @@ import { Address, createWalletClient, parseEther, parseUnits } from "viem";
 import { baseSepolia } from "viem/chains";
 import {
   createWalletClientFromPrivateKey,
-  PikeClient,
   publicClient,
   transport,
-} from "#/services/clients";
+} from "#/utils/clients";
+import { PikeClient } from "#/services/PikeClient";
 import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "@pike-liq-bot/utils";
 import { getDecimals, getUnderlying } from "#/utils/consts";
 import { getEnv } from "#/utils/env";

@@ -1,18 +1,7 @@
-// src/index.ts
-
 import { LiquidationBot } from "./liquidationBot";
-import {
-  createWalletClientFromPrivateKey,
-  PikeClient,
-} from "./services/clients";
 
 async function main(): Promise<void> {
-  const pikeClient = new PikeClient(
-    createWalletClientFromPrivateKey(
-      process.env.BOT_PRIVATE_KEY as `0x${string}`
-    )
-  );
-  const bot = new LiquidationBot({ pikeClient });
+  const bot = new LiquidationBot();
 
   // Handle shutdown gracefully
   process.on("SIGINT", () => {
@@ -23,7 +12,7 @@ async function main(): Promise<void> {
 
   // Start the bot
   try {
-    await bot.startToMonitor();
+    await bot.startMonitoring();
     console.log("Bot is running. Press Ctrl+C to stop.");
 
     // Keep the process running

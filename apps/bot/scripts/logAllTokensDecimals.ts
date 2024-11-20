@@ -1,5 +1,5 @@
 import { Address } from "viem";
-import { publicClient } from "#/services/clients";
+import { publicClient } from "#/utils/clients";
 import {
   pstETH,
   pTokenAbi,

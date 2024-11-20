@@ -1,14 +1,15 @@
 // test/bot/liquidationBot.test.ts
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { LiquidationBot } from "#/liquidationBot";
-import { PikeClient, publicClient } from "#/services/clients";
+import { LiquidationBot } from "#/application/liquidationBot";
+import { publicClient } from "#/utils/clients";
+import { PikeClient } from "#/services/PikeClient";
 import {
   wethLowPriceBlock,
   mockUserAPosition,
   mockUserBPosition,
 } from "./mocks/utils";
 import type { Block } from "viem";
-import { getUserPositionsUpdatesAfterBlock } from "#/services/ponderQuerier";
+import { getUserPositionsUpdatesAfterBlock } from "#/infrastructure/ponder/ponderQuerier";
 
 // Mock module first
 vi.mock("#/services/ponderQuerier", () => ({
@@ -62,7 +63,7 @@ describe("LiquidationBot", () => {
       const mockPositions = [mockUserAPosition, mockUserBPosition];
       mockedGetUserPositionsUpdatesAfterBlock.mockResolvedValue(mockPositions);
 
-      await liquidationBot.startToMonitor();
+      await liquidationBot.startMonitoring();
 
       expect(publicClient.multicall).toHaveBeenCalled();
       expect(mockedGetUserPositionsUpdatesAfterBlock).toHaveBeenCalled();
@@ -74,7 +75,7 @@ describe("LiquidationBot", () => {
       const stopWatchSpy = vi.fn();
       vi.mocked(publicClient.watchBlocks).mockReturnValue(stopWatchSpy);
 
-      await liquidationBot.startToMonitor();
+      await liquidationBot.startMonitoring();
       liquidationBot.stop();
 
       expect(stopWatchSpy).toHaveBeenCalled();
@@ -84,7 +85,7 @@ describe("LiquidationBot", () => {
   describe("Price and block management", () => {
     test("should update prices with specific block number", async () => {
       liquidationBot.setBlockNumber(wethLowPriceBlock);
-      await liquidationBot.startToMonitor();
+      await liquidationBot.startMonitoring();
 
       expect(publicClient.multicall).toHaveBeenCalledWith({
         contracts: expect.arrayContaining([
@@ -103,7 +104,7 @@ describe("LiquidationBot", () => {
       ]);
       vi.mocked(publicClient.readContract).mockResolvedValue(0n); // liquidation allowed
 
-      await liquidationBot.startToMonitor();
+      await liquidationBot.startMonitoring();
 
       // Trigger block callback
       if (blockCallback) {
@@ -122,7 +123,7 @@ describe("LiquidationBot", () => {
       ]);
       vi.mocked(publicClient.readContract).mockResolvedValue(1n); // liquidation not allowed
 
-      await liquidationBot.startToMonitor();
+      await liquidationBot.startMonitoring();
 
       // Trigger block callback
       if (blockCallback) {
@@ -142,7 +143,7 @@ describe("LiquidationBot", () => {
         new Error("Failed to fetch")
       );
 
-      await expect(() => liquidationBot.startToMonitor()).rejects.toThrow(
+      await expect(() => liquidationBot.startMonitoring()).rejects.toThrow(
         "Failed to fetch"
       );
     });
@@ -152,7 +153,7 @@ describe("LiquidationBot", () => {
         new Error("Price fetch failed")
       );
 
-      await expect(() => liquidationBot.startToMonitor()).rejects.toThrow(
+      await expect(() => liquidationBot.startMonitoring()).rejects.toThrow(
         "Price fetch failed"
       );
     });
@@ -166,7 +167,7 @@ describe("LiquidationBot", () => {
         new Error("Liquidation failed")
       );
 
-      await liquidationBot.startToMonitor();
+      await liquidationBot.startMonitoring();
 
       if (blockCallback) {
         await blockCallback({

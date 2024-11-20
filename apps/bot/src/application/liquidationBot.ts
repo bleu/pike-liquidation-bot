@@ -1,11 +1,11 @@
 import { Address } from "viem";
-import { LiquidationData } from "./types";
-import { PriceHandler } from "./handlers/priceHandler";
-import { PositionHandler } from "./handlers/positionHandler";
-import { LiquidationHandler } from "./handlers/liquidationHandler";
-import { ContractReader } from "./services/contractReader";
-import { PikeClient, publicClient } from "./services/clients";
-import { getUserPositionsUpdatesAfterBlock } from "./services/ponderQuerier";
+import { LiquidationHandler } from "../domains/liquidationHandler";
+import { PositionHandler } from "../domains/positionHandler";
+import { PriceHandler } from "../domains/priceHandler";
+import { publicClient } from "../utils/clients";
+import { LiquidationData } from "../types";
+
+import { getUserPositionsUpdatesAfterBlock } from "../infrastructure/ponder/ponderQuerier";
 
 export class LiquidationBot {
   private unwatchesFn: Record<Address, () => void> = {};
@@ -13,22 +13,17 @@ export class LiquidationBot {
   private positions: Record<Address, LiquidationData> = {};
   private lastUpdateGt?: bigint = undefined;
 
-  private contractReader: ContractReader;
   private priceHandler: PriceHandler;
   private positionHandler: PositionHandler;
   private liquidationHandler: LiquidationHandler;
 
-  constructor({ pikeClient }: { pikeClient: PikeClient }) {
-    this.contractReader = new ContractReader(publicClient);
-    this.priceHandler = new PriceHandler(this.contractReader);
+  constructor() {
+    this.priceHandler = new PriceHandler();
     this.positionHandler = new PositionHandler(this.priceHandler);
-    this.liquidationHandler = new LiquidationHandler(
-      this.contractReader,
-      pikeClient
-    );
+    this.liquidationHandler = new LiquidationHandler();
   }
 
-  startToMonitor = async () => {
+  startMonitoring = async () => {
     await this.updateTokenPrices();
     await this.updatePositionsToMonitor();
   };

@@ -1,18 +1,17 @@
 import { Address, parseUnits } from "viem";
-import {
-  createWalletClientFromPrivateKey,
-  PikeClient,
-} from "#/services/clients";
+import { createWalletClientFromPrivateKey } from "#/utils/clients";
+
 import { stETH, USDC, WETH } from "@pike-liq-bot/utils";
 import { getSymbol } from "#/utils/consts";
 import { getEnv } from "#/utils/env";
+import { OracleService } from "#/infrastructure/blockchain/services/OracleService";
 
 export type WalletInfo = {
   address: Address;
   privateKey: `0x${string}`;
 };
 
-const funderClient = new PikeClient(
+const funderClient = new OracleService(
   createWalletClientFromPrivateKey(getEnv("BOT_PRIVATE_KEY") as `0x${string}`)
 );
 

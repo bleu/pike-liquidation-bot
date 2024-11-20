@@ -1,13 +1,12 @@
 // test/handlers/liquidationHandler.test.ts
-import { describe, test, expect } from "vitest";
-import { LiquidationHandler } from "#/handlers/liquidationHandler";
-import { ContractReader } from "#/services/contractReader";
+import { LiquidationHandler } from "#/domains/liquidationHandler";
 import {
   createWalletClientFromPrivateKey,
-  PikeClient,
   publicClient,
-} from "#/services/clients";
+} from "#/utils/clients";
 import { getEnv } from "#/utils/env";
+import { pTokenAbi } from "@pike-liq-bot/utils";
+import { describe, expect, test } from "vitest";
 import {
   initialPricesBlock,
   positionUserA,
@@ -15,16 +14,13 @@ import {
   userE,
   wethLowPriceBlock,
 } from "../mocks/utils";
-import { pTokenAbi } from "@pike-liq-bot/utils";
 
 describe("LiquidationHandler with real client", () => {
   // Create instances that will be used across all tests
   const walletClient = createWalletClientFromPrivateKey(
     getEnv("BOT_PRIVATE_KEY") as `0x${string}`
   );
-  const pikeClient = new PikeClient(walletClient);
-  const contractReader = new ContractReader(publicClient);
-  const liquidationHandler = new LiquidationHandler(contractReader, pikeClient);
+  const liquidationHandler = new LiquidationHandler();
 
   describe("checkAmountToLiquidate", () => {
     const params = {
@@ -45,7 +41,7 @@ describe("LiquidationHandler with real client", () => {
       });
 
       test("should match half of borrow balance", async () => {
-        const borrowBalance = await contractReader.readContract({
+        const borrowBalance = await publicClient.readContract({
           address: params.borrowPToken,
           abi: pTokenAbi,
           functionName: "borrowBalanceCurrent",

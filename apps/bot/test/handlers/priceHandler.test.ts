@@ -1,8 +1,7 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import { PriceHandler } from "#/handlers/priceHandler";
-import { ContractReader } from "#/services/contractReader";
-import { publicClient } from "#/services/clients";
+import { PriceHandler } from "#/domains/priceHandler";
+import { publicClient } from "#/utils/clients";
 import { USDC, WETH, stETH } from "@pike-liq-bot/utils";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("#/services/clients", async () => {
   const actual = await vi.importActual("#/services/clients");
@@ -25,8 +24,7 @@ describe("PriceHandler", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    const contractReader = new ContractReader(publicClient);
-    priceHandler = new PriceHandler(contractReader);
+    priceHandler = new PriceHandler();
   });
 
   test("should update token prices", async () => {
