@@ -25,6 +25,11 @@ contract LiquidationHelperTest is Test {
     address public liquidator = address(1);
     address public borrower = address(2);
 
+    // Price constants
+    uint160 constant MIN_SQRT_RATIO = 4295128739;
+    uint160 constant MAX_SQRT_RATIO =
+        1461446703485210103287273052203988822378723970342;
+
     function setUp() public {
         // Deploy mock tokens ensuring token0 < token1
         debtToken = new ERC20Mock("Debt Token", "DEBT");
@@ -69,26 +74,56 @@ contract LiquidationHelperTest is Test {
     }
 
     function test_liquidation_success() public {
-        // Setup
         uint256 debtAmount = 1000e18;
 
         vm.startPrank(liquidator);
 
-        // Execute liquidation
         liquidationHelper.liquidate(
             address(pool),
             debtPToken,
             collateralPToken,
             borrower,
-            debtAmount
+            debtAmount,
+            MIN_SQRT_RATIO + 1
         );
 
-        // Assert the liquidator received the expected collateral
         assertGt(
             collateralToken.balanceOf(liquidator),
             0,
             "Liquidator should receive correct collateral amount"
         );
+
+        vm.stopPrank();
+    }
+
+    function test_liquidation_at_price_boundaries() public {
+        uint256 debtAmount = 1000e18;
+
+        vm.startPrank(liquidator);
+
+        vm.expectRevert(bytes("SPL"));
+
+        // Test at minimum valid price
+        liquidationHelper.liquidate(
+            address(pool),
+            debtPToken,
+            collateralPToken,
+            borrower,
+            debtAmount,
+            MIN_SQRT_RATIO
+        );
+
+        vm.expectRevert(bytes("SPL"));
+
+        liquidationHelper.liquidate(
+            address(pool),
+            debtPToken,
+            collateralPToken,
+            borrower,
+            debtAmount,
+            MAX_SQRT_RATIO
+        );
+        // Test at maximum valid price
 
         vm.stopPrank();
     }

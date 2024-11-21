@@ -14,12 +14,14 @@ contract LiquidationHelper {
     /// @param collateralPToken PToken contract where collateral will be seized
     /// @param user Address of the user to liquidate
     /// @param debtAmount Amount of debt to repay
+    // @param sqrtPriceLimitX96 Price limit for the swap
     function liquidate(
         address pool,
         IPToken debtPToken,
         IPToken collateralPToken,
         address user,
-        uint256 debtAmount
+        uint256 debtAmount,
+        uint160 sqrtPriceLimitX96
     ) external {
         // Prepare callback data
         bytes memory data = abi.encode(
@@ -41,7 +43,7 @@ contract LiquidationHelper {
             address(this), // recipient
             zeroForOne,
             -int256(debtAmount), // negative for exact output
-            zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+            sqrtPriceLimitX96,
             data
         );
     }
@@ -74,7 +76,6 @@ contract LiquidationHelper {
         address tokenToPayAddress = amount0Delta > 0
             ? pool.token0()
             : pool.token1();
-        IERC20 tokenToPay = IERC20(tokenToPayAddress);
 
         require(
             tokenToPayAddress == address(collateralToken),
@@ -107,9 +108,4 @@ contract LiquidationHelper {
             "Collateral transfer failed"
         );
     }
-
-    // Constants for price limits
-    uint160 internal constant MIN_SQRT_RATIO = 4295128739;
-    uint160 internal constant MAX_SQRT_RATIO =
-        1461446703485210103287273052203988822378723970342;
 }
