@@ -2,18 +2,23 @@
 pragma solidity 0.8.28;
 
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import {CallbackValidation} from "@uniswap/v3-core/contracts/libraries/CallbackValidation.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 import {IPToken} from "./interfaces/IPToken.sol";
+import {CallbackValidation} from "./CallbackValidation.sol";
 
 /// @title LiquidationHelper
 /// @notice Permissionless helper contract for executing Pike liquidations with swaps
-contract LiquidationHelper {
-    address public constant UNISWAP_V3_FACTORY =
-        0x1F98431c8aD98523631AE4a59f267346ea31F984;
+contract LiquidationHelper is CallbackValidation {
+    address public uni_v3_factory;
     /// Minimum profit threshold to prevent sandwich attacks
     uint256 public constant MIN_PROFIT_THRESHOLD = 100; // 1%
 
+    constructor(
+        address _uni_v3_factory,
+        bytes memory _pool_init_code_hash
+    ) CallbackValidation(_pool_init_code_hash) {
+        uni_v3_factory = _uni_v3_factory;
+    }
     /// @notice Execute liquidation with swap
     /// @param pool Uniswap V3 pool to swap with
     /// @param debtPToken PToken contract of the debt to be repaid
@@ -92,12 +97,7 @@ contract LiquidationHelper {
         uint24 fee = uniPool.fee();
 
         // Verify callback using Uniswap's CallbackValidation
-        CallbackValidation.verifyCallback(
-            UNISWAP_V3_FACTORY,
-            token0,
-            token1,
-            fee
-        );
+        verifyCallback(uni_v3_factory, token0, token1, fee);
 
         IERC20 debtToken = IERC20(debtPToken.underlying());
         IERC20 collateralToken = IERC20(collateralPToken.underlying());
