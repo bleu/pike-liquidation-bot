@@ -1,4 +1,4 @@
-import { publicClient } from "../clients";
+import { publicClient } from "../services/clients";
 
 export async function executeOnFutureBlock(
   blocksToWait: number,
