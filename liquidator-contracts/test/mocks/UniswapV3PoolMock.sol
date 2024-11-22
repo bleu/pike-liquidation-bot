@@ -2,25 +2,68 @@
 pragma solidity 0.8.28;
 
 import {ERC20Mock} from "./ERC20Mock.sol";
+import {IUniswapV3SwapCallback} from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
+
+contract UniswapV3PoolMockFactory {
+    bytes32 public immutable POOL_INIT_CODE_HASH =
+        keccak256(type(UniswapV3PoolMock).creationCode);
+
+    function createPool(
+        address tokenA,
+        address tokenB,
+        uint24 fee
+    ) external returns (address pool) {
+        (address token0, address token1) = tokenA < tokenB
+            ? (tokenA, tokenB)
+            : (tokenB, tokenA);
+        require(token0 != address(0));
+
+        bytes32 salt = keccak256(abi.encode(token0, token1, fee));
+
+        pool = address(new UniswapV3PoolMock{salt: salt}(token0, token1, fee));
+    }
+
+    function computeAddress(
+        address tokenA,
+        address tokenB,
+        uint24 fee
+    ) public view returns (address) {
+        (address token0, address token1) = tokenA < tokenB
+            ? (tokenA, tokenB)
+            : (tokenB, tokenA);
+
+        bytes32 salt = keccak256(abi.encode(token0, token1, fee));
+        bytes32 initCodeHash = keccak256(
+            abi.encodePacked(
+                type(UniswapV3PoolMock).creationCode,
+                abi.encode(token0, token1, fee)
+            )
+        );
+        return
+            address(
+                uint160(
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(
+                                hex"ff",
+                                address(this),
+                                salt,
+                                initCodeHash
+                            )
+                        )
+                    )
+                )
+            );
+    }
+}
 
 contract UniswapV3PoolMock {
     address public token0;
     address public token1;
+    uint24 public fee;
 
-    // Q64.96 price for 1:1
-    // How to calculate:
-    // - For a 1:1 price, we need price = 1
-    // - In Q64.96 format: price = sqrt(1) * 2^96
-    // - sqrt(1) = 1
-    // - So, 1 * 2^96 = 79228162514264337593543950336
     uint160 public constant FIXED_PRICE_96 = 79228162514264337593543950336;
-
-    // Minimum allowed sqrt price in Uniswap v3
-    // Equivalent to a price of 2^-276 ≈ 1e-83
     uint160 public constant MIN_SQRT_RATIO = 4295128739;
-
-    // Maximum allowed sqrt price in Uniswap v3
-    // Equivalent to a price of 2^276 ≈ 1e83
     uint160 public constant MAX_SQRT_RATIO =
         1461446703485210103287273052203988822378723970342;
 
@@ -28,6 +71,7 @@ contract UniswapV3PoolMock {
         require(_token0 < _token1, "Wrong token order");
         token0 = _token0;
         token1 = _token1;
+        fee = _fee;
     }
 
     function balance0() public view returns (uint256) {
@@ -45,18 +89,14 @@ contract UniswapV3PoolMock {
         uint160 sqrtPriceLimitX96,
         bytes calldata data
     ) external returns (int256 amount0, int256 amount1) {
-        // Check price limits against our fixed 1:1 price
         if (zeroForOne) {
-            // When trading token0 for token1, price can't go below limit
             require(sqrtPriceLimitX96 < FIXED_PRICE_96, "SPL");
             require(sqrtPriceLimitX96 > MIN_SQRT_RATIO, "SPL");
         } else {
-            // When trading token1 for token0, price can't go above limit
             require(sqrtPriceLimitX96 > FIXED_PRICE_96, "SPL");
             require(sqrtPriceLimitX96 < MAX_SQRT_RATIO, "SPL");
         }
 
-        // Calculate swap amounts (1:1 rate)
         bool isSpecifiedAmountPositive = amountSpecified > 0;
         int256 positiveAmount = isSpecifiedAmountPositive
             ? amountSpecified
@@ -69,7 +109,6 @@ contract UniswapV3PoolMock {
             ? (positiveAmount, negativeAmount)
             : (negativeAmount, positiveAmount);
 
-        // Execute transfers
         if (zeroForOne) {
             if (amount1 < 0)
                 ERC20Mock(token1).transfer(recipient, uint256(-amount1));
@@ -94,12 +133,4 @@ contract UniswapV3PoolMock {
             require(balance1Before + uint256(amount1) <= balance1(), "IIA");
         }
     }
-}
-
-interface IUniswapV3SwapCallback {
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external;
 }

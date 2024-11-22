@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {LiquidationHelper} from "../src/LiquidationHelper.sol";
 import {ERC20Mock} from "./mocks/ERC20Mock.sol";
 import {PTokenMock} from "./mocks/PTokenMock.sol";
-import {UniswapV3PoolMock} from "./mocks/UniswapV3PoolMock.sol";
+import {UniswapV3PoolMock, UniswapV3PoolMockFactory} from "./mocks/UniswapV3PoolMock.sol";
 
 contract LiquidationHelperTest is Test {
     LiquidationHelper public liquidationHelper;
@@ -30,6 +30,9 @@ contract LiquidationHelperTest is Test {
     uint160 constant MAX_SQRT_RATIO =
         1461446703485210103287273052203988822378723970342;
 
+    address token0;
+    address token1;
+
     function setUp() public {
         // Deploy mock tokens ensuring token0 < token1
         debtToken = new ERC20Mock("Debt Token", "DEBT");
@@ -44,25 +47,24 @@ contract LiquidationHelperTest is Test {
         );
 
         // Sort tokens for pool creation
-        (address token0, address token1) = address(debtToken) <
-            address(collateralToken)
+        (token0, token1) = address(debtToken) < address(collateralToken)
             ? (address(debtToken), address(collateralToken))
             : (address(collateralToken), address(debtToken));
 
-        // Deploy mock Uniswap V3 Pool with sorted tokens
-        pool = new UniswapV3PoolMock(token0, token1, 3000);
+        UniswapV3PoolMockFactory factory = new UniswapV3PoolMockFactory();
 
-        // Deploy liquidation helper
-        liquidationHelper = new LiquidationHelper();
+        pool = UniswapV3PoolMock(factory.createPool(token0, token1, 3000));
 
-        // Setup initial token balances
+        liquidationHelper = new LiquidationHelper(
+            address(factory),
+            type(UniswapV3PoolMock).creationCode
+        );
+
         debtToken.mint(address(pool), 10000e18);
         collateralToken.mint(address(pool), 10000e18);
 
-        // Setup PToken collateral
         collateralToken.mint(address(collateralPToken), 10000e18);
 
-        // Approve tokens
         vm.startPrank(address(collateralPToken));
         collateralToken.approve(address(collateralPToken), type(uint256).max);
         vm.stopPrank();
@@ -84,7 +86,8 @@ contract LiquidationHelperTest is Test {
             collateralPToken,
             borrower,
             debtAmount,
-            MIN_SQRT_RATIO + 1
+            MIN_SQRT_RATIO + 1,
+            0
         );
 
         assertGt(
@@ -96,7 +99,7 @@ contract LiquidationHelperTest is Test {
         vm.stopPrank();
     }
 
-    function test_liquidation_at_price_boundaries() public {
+    function test_liquidation_outside_price_boundaries() public {
         uint256 debtAmount = 1000e18;
 
         vm.startPrank(liquidator);
@@ -110,7 +113,8 @@ contract LiquidationHelperTest is Test {
             collateralPToken,
             borrower,
             debtAmount,
-            MIN_SQRT_RATIO
+            MIN_SQRT_RATIO,
+            0
         );
 
         vm.expectRevert(bytes("SPL"));
@@ -121,9 +125,60 @@ contract LiquidationHelperTest is Test {
             collateralPToken,
             borrower,
             debtAmount,
-            MAX_SQRT_RATIO
+            MAX_SQRT_RATIO,
+            0
         );
         // Test at maximum valid price
+
+        vm.stopPrank();
+    }
+
+    function test_liquidation_bellow_min_amount_out() public {
+        uint256 debtAmount = 1000e18;
+
+        vm.startPrank(liquidator);
+
+        vm.expectRevert(bytes("Insufficient output amount"));
+
+        // Test at minimum valid price
+        liquidationHelper.liquidate(
+            address(pool),
+            debtPToken,
+            collateralPToken,
+            borrower,
+            debtAmount,
+            MIN_SQRT_RATIO + 1,
+            1000000e18
+        );
+
+        vm.stopPrank();
+    }
+
+    function test_liquidation_from_another_factory() public {
+        uint256 debtAmount = 1000e18;
+
+        UniswapV3PoolMockFactory newFactory = new UniswapV3PoolMockFactory();
+
+        UniswapV3PoolMock differentFactoryPool = UniswapV3PoolMock(
+            newFactory.createPool(token0, token1, 3000)
+        );
+
+        debtToken.mint(address(differentFactoryPool), 10000e18);
+        collateralToken.mint(address(differentFactoryPool), 10000e18);
+
+        vm.startPrank(liquidator);
+
+        vm.expectRevert(bytes("Invalid callback sender"));
+
+        liquidationHelper.liquidate(
+            address(differentFactoryPool),
+            debtPToken,
+            collateralPToken,
+            borrower,
+            debtAmount,
+            MIN_SQRT_RATIO + 1,
+            0
+        );
 
         vm.stopPrank();
     }

@@ -4,24 +4,37 @@ pragma solidity 0.8.28;
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 import {IPToken} from "./interfaces/IPToken.sol";
+import {CallbackValidation} from "./CallbackValidation.sol";
 
 /// @title LiquidationHelper
 /// @notice Permissionless helper contract for executing Pike liquidations with swaps
-contract LiquidationHelper {
+contract LiquidationHelper is CallbackValidation {
+    address public uni_v3_factory;
+    /// Minimum profit threshold to prevent sandwich attacks
+    uint256 public constant MIN_PROFIT_THRESHOLD = 100; // 1%
+
+    constructor(
+        address _uni_v3_factory,
+        bytes memory _pool_init_code_hash
+    ) CallbackValidation(_pool_init_code_hash) {
+        uni_v3_factory = _uni_v3_factory;
+    }
     /// @notice Execute liquidation with swap
     /// @param pool Uniswap V3 pool to swap with
     /// @param debtPToken PToken contract of the debt to be repaid
     /// @param collateralPToken PToken contract where collateral will be seized
     /// @param user Address of the user to liquidate
     /// @param debtAmount Amount of debt to repay
-    // @param sqrtPriceLimitX96 Price limit for the swap
+    /// @param sqrtPriceLimitX96 Price limit for the swap
+    /// @param minOutputAmount Minimum amount of collateral to receive after liquidation to protect against price manipulation
     function liquidate(
         address pool,
         IPToken debtPToken,
         IPToken collateralPToken,
         address user,
         uint256 debtAmount,
-        uint160 sqrtPriceLimitX96
+        uint160 sqrtPriceLimitX96,
+        uint256 minOutputAmount
     ) external {
         // Prepare callback data
         bytes memory data = abi.encode(
@@ -29,7 +42,9 @@ contract LiquidationHelper {
             collateralPToken,
             user,
             debtAmount,
-            msg.sender // Store original caller
+            msg.sender, // Store original caller
+            minOutputAmount,
+            pool
         );
 
         IUniswapV3Pool uniPool = IUniswapV3Pool(pool);
@@ -63,19 +78,32 @@ contract LiquidationHelper {
             IPToken collateralPToken,
             address user,
             uint256 debtAmount,
-            address caller
-        ) = abi.decode(_data, (IPToken, IPToken, address, uint256, address));
+            address caller,
+            uint256 minOutputAmount,
+            address poolAddress
+        ) = abi.decode(
+                _data,
+                (IPToken, IPToken, address, uint256, address, uint256, address)
+            );
+
+        // Ensure callback is from the expected pool
+        require(msg.sender == poolAddress, "Invalid pool");
+
+        IUniswapV3Pool uniPool = IUniswapV3Pool(poolAddress);
+
+        // Get pool tokens and fee for validation
+        address token0 = uniPool.token0();
+        address token1 = uniPool.token1();
+        uint24 fee = uniPool.fee();
+
+        // Verify callback using Uniswap's CallbackValidation
+        verifyCallback(uni_v3_factory, token0, token1, fee);
 
         IERC20 debtToken = IERC20(debtPToken.underlying());
         IERC20 collateralToken = IERC20(collateralPToken.underlying());
 
-        // Get pool reference
-        IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
-
         // For exact output, the delta we pay will be positive
-        address tokenToPayAddress = amount0Delta > 0
-            ? pool.token0()
-            : pool.token1();
+        address tokenToPayAddress = amount0Delta > 0 ? token0 : token1;
 
         require(
             tokenToPayAddress == address(collateralToken),
@@ -97,6 +125,20 @@ contract LiquidationHelper {
 
         // Convert seized pTokens to underlying
         collateralPToken.redeem(collateralReceived);
+
+        // Verify minimum output amount and profit margin
+        uint256 totalCollateral = collateralToken.balanceOf(address(this));
+        require(
+            totalCollateral >= amountToPay + minOutputAmount,
+            "Insufficient output amount"
+        );
+
+        // Verify profit margin to prevent sandwich attacks
+        uint256 profit = totalCollateral - amountToPay;
+        require(
+            profit * 10000 >= amountToPay * MIN_PROFIT_THRESHOLD,
+            "Insufficient profit margin"
+        );
 
         // Pay the swap with collateral token
         collateralToken.transfer(msg.sender, amountToPay);
