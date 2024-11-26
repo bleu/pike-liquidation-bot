@@ -5,7 +5,15 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // Simple ERC20 Mock
 contract ERC20Mock is ERC20 {
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
+    uint8 private _decimals;
+
+    constructor(
+        string memory name,
+        string memory symbol,
+        uint8 decimals
+    ) ERC20(name, symbol) {
+        _decimals = decimals;
+    }
 
     function mint(address account, uint256 amount) external {
         _mint(account, amount);
@@ -13,5 +21,9 @@ contract ERC20Mock is ERC20 {
 
     function burn(address account, uint256 amount) external {
         _burn(account, amount);
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
     }
 }
