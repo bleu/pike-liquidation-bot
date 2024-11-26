@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {TickMath} from "./libraries/TickMath.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 import {IPToken} from "./interfaces/IPToken.sol";
 import {CallbackValidation} from "./CallbackValidation.sol";
@@ -25,7 +26,6 @@ contract LiquidationHelper is CallbackValidation {
     /// @param collateralPToken PToken contract where collateral will be seized
     /// @param user Address of the user to liquidate
     /// @param debtAmount Amount of debt to repay
-    /// @param sqrtPriceLimitX96 Price limit for the swap
     /// @param minOutputAmount Minimum amount of collateral to receive after liquidation to protect against price manipulation
     function liquidate(
         address pool,
@@ -33,7 +33,6 @@ contract LiquidationHelper is CallbackValidation {
         IPToken collateralPToken,
         address user,
         uint256 debtAmount,
-        uint160 sqrtPriceLimitX96,
         uint256 minOutputAmount
     ) external {
         // Prepare callback data
@@ -49,7 +48,9 @@ contract LiquidationHelper is CallbackValidation {
 
         IUniswapV3Pool uniPool = IUniswapV3Pool(pool);
 
+        // zeroForOne is true if you want to sell token0 and buy token 1 is going from pool to user, if zeroForOne is false, then the opposite
         // Determine swap direction by checking if debt token is token0
+        // We want to buy the debtToken and sell the collateral
         bool zeroForOne = address(debtPToken.underlying()) != uniPool.token0();
 
         // Execute swap with exact output (negative amount)
@@ -58,7 +59,9 @@ contract LiquidationHelper is CallbackValidation {
             address(this), // recipient
             zeroForOne,
             -int256(debtAmount), // negative for exact output
-            sqrtPriceLimitX96,
+            zeroForOne
+                ? TickMath.MIN_SQRT_RATIO + 1
+                : TickMath.MAX_SQRT_RATIO - 1,
             data
         );
     }
