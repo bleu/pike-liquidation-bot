@@ -64,12 +64,8 @@ contract LiquidationHelperTest is Test {
             type(UniswapV3PoolMock).creationCode
         );
 
-        usdcDebtToken.mint(address(liquidator), 1e25);
         usdcDebtToken.mint(address(pool), 1e25);
         wethCollateralToken.mint(address(pool), 1e25);
-
-        vm.prank(address(liquidationHelper));
-        usdcDebtToken.approve(address(usdcDebtPToken), type(uint256).max);
     }
 
     function test_liquidation_success() public {
