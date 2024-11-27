@@ -15,3 +15,6 @@ export const WETH_stETH_POOL =
   "0x2052e1d18741f50eb3ff4e5e6af5a02816378e29" as const;
 export const USDC_stETH_POOL =
   "0xc2bf4671091b0db7b2e8ee872592c4aac36f08f4" as const;
+
+export const liquidationHelper =
+  "0x5ac13f632f3cb01462d77c0d263aea30560fac65" as const;
