@@ -10,8 +10,8 @@ export const oracleEngine =
 export const mockOracle = "0xc34df3ce38773ae01a61a6cfc93a76060fbb5d84" as const;
 
 export const WETH_USDC_POOL =
-  "0x0373F48EbE9B42227A54db032f8335921127DDf2" as const;
+  "0x3658151f8f3083e55f2c035be5f7f0aad896e222" as const;
 export const WETH_stETH_POOL =
-  "0x9B6816c6C6Dda851480d4b1158AAC128C54Ed36e" as const;
+  "0x2052e1d18741f50eb3ff4e5e6af5a02816378e29" as const;
 export const USDC_stETH_POOL =
-  "0xd0Db24c6234c3d75188F09c798cb67AED39e0c6a" as const;
+  "0xc2bf4671091b0db7b2e8ee872592c4aac36f08f4" as const;
