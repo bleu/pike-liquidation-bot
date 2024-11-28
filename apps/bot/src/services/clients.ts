@@ -13,6 +13,8 @@ import {
   riskEngineAbi,
   mockOracle,
   riskEngine,
+  liquidationHelperAbi,
+  liquidationHelper,
 } from "@pike-liq-bot/utils";
 
 export const chain = baseSepolia;
@@ -302,6 +304,39 @@ export class PikeClient {
         abi: pTokenAbi,
         functionName: "repayBorrow",
         args: [amount],
+      }),
+      value: 0n,
+    });
+  }
+
+  async liquidatePosition({
+    pool,
+    borrowPToken,
+    borrower,
+    amountToLiquidate,
+    collateralPToken,
+    minAmountOut,
+  }: {
+    pool: Address;
+    borrower: Address;
+    borrowPToken: Address;
+    amountToLiquidate: bigint;
+    collateralPToken: Address;
+    minAmountOut: bigint;
+  }) {
+    return this.sendAndWaitForReceipt({
+      to: liquidationHelper,
+      data: encodeFunctionData({
+        abi: liquidationHelperAbi,
+        functionName: "liquidate",
+        args: [
+          pool,
+          borrowPToken,
+          collateralPToken,
+          borrower,
+          amountToLiquidate,
+          minAmountOut,
+        ],
       }),
       value: 0n,
     });
