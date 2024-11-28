@@ -6,6 +6,7 @@ import { LiquidationHandler } from "./handlers/liquidationHandler";
 import { ContractReader } from "./services/contractReader";
 import { PikeClient, publicClient } from "./services/clients";
 import { getUserPositionsUpdatesAfterBlock } from "./services/ponderQuerier";
+import { getUnderlying } from "./utils/consts";
 
 export class LiquidationBot {
   private unwatchesFn: Record<Address, () => void> = {};
@@ -77,6 +78,12 @@ export class LiquidationBot {
             borrowPToken: data.biggestBorrowPosition.marketId,
             amountToLiquidate,
             collateralPToken: data.biggestCollateralPosition.marketId,
+            borrowTokenPrice: this.priceHandler.getPrice(
+              getUnderlying(data.biggestBorrowPosition.marketId)
+            ),
+            collateralTokenPrice: this.priceHandler.getPrice(
+              getUnderlying(data.biggestCollateralPosition.marketId)
+            ),
           });
           return true;
         }
