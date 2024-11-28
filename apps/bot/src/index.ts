@@ -14,6 +14,16 @@ async function main(): Promise<void> {
   );
   const bot = new LiquidationBot({ pikeClient });
 
+  // Function to update positions
+  const updatePositions = async () => {
+    try {
+      await bot.updatePositionsToMonitor();
+      console.log("Positions updated successfully");
+    } catch (error) {
+      console.error("Error updating positions:", error);
+    }
+  };
+
   // Handle shutdown gracefully
   process.on("SIGINT", () => {
     console.log("Shutting down...");
@@ -25,6 +35,12 @@ async function main(): Promise<void> {
   try {
     await bot.startToMonitor();
     console.log("Bot is running. Press Ctrl+C to stop.");
+
+    // Set up periodic updates every 30 seconds
+    setInterval(updatePositions, 30000);
+
+    // Initial update
+    await updatePositions();
 
     // Keep the process running
     await new Promise(() => {}); // Never resolves, keeps process alive
