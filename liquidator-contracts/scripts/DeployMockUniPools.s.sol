@@ -39,10 +39,6 @@ contract DeployScript is Script {
         USDC.mint(address(poolUsdcStEth), 1e25);
         stETH.mint(address(poolUsdcStEth), 1e25);
 
-        new LiquidationHelper(
-            address(oracleEngine),
-            type(UniswapV3PoolMock).creationCode
-        );
         vm.stopBroadcast();
     }
 }
