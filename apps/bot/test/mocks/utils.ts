@@ -73,6 +73,7 @@ export const stEthHighPriceBlock = 18486586n;
 
 export const mockUserAPosition: AllUserPositions = {
   id: userA,
+  lastUpdated: 100n,
   positions: [
     // Collateral: WETH
     {
@@ -93,6 +94,7 @@ export const mockUserAPosition: AllUserPositions = {
 
 export const mockUserBPosition: AllUserPositions = {
   id: userB,
+  lastUpdated: 100n,
   positions: [
     // Collateral: USDC
     {
@@ -119,8 +121,8 @@ export const mockUserBPosition: AllUserPositions = {
 
 export const mockUserCPosition: AllUserPositions = {
   id: userC,
+  lastUpdated: 100n,
   positions: [
-    // Collateral: WETH and USDC
     {
       marketId: pWETH,
       balance: 500000000000000000n, // 0.5 WETH
@@ -145,6 +147,7 @@ export const mockUserCPosition: AllUserPositions = {
 
 export const mockUserDPosition: AllUserPositions = {
   id: userD,
+  lastUpdated: 100n,
   positions: [
     // Collateral: WETH
     {
@@ -171,6 +174,7 @@ export const mockUserDPosition: AllUserPositions = {
 
 export const mockUserEPosition: AllUserPositions = {
   id: userE,
+  lastUpdated: 100n,
   positions: [
     // Collateral: WETH
     {

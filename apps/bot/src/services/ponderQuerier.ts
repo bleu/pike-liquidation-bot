@@ -1,7 +1,7 @@
 import { gql, GraphQLClient } from "graphql-request";
 
 import { type Address } from "viem";
-import { AllUserPositions, UserPositionData } from "../types";
+import { AllUserPositions } from "../types";
 
 export const gqlClient = new GraphQLClient("http://localhost:42069/");
 
@@ -9,6 +9,7 @@ interface IQuery {
   users: {
     items: {
       id: Address;
+      lastUpdated: bigint;
       positions: {
         items: {
           marketId: Address;
@@ -26,6 +27,7 @@ const QUERY = gql`
     users(where: { lastUpdated_gt: $lastUpdateGt }) {
       items {
         id
+        lastUpdated
         positions {
           items {
             marketId
@@ -48,6 +50,7 @@ export async function getUserPositionsUpdatesAfterBlock(
 
   return queryResponse.users.items.map((user) => ({
     id: user.id,
+    lastUpdated: user.lastUpdated,
     positions: user.positions.items.map((position) => ({
       marketId: position.marketId,
       balance: BigInt(position.balance),

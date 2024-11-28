@@ -5,24 +5,37 @@ import { PositionHandler } from "./handlers/positionHandler";
 import { LiquidationHandler } from "./handlers/liquidationHandler";
 import { ContractReader } from "./services/contractReader";
 import { PikeClient, publicClient } from "./services/clients";
-import { getUserPositionsUpdatesAfterBlock } from "./services/ponderQuerier";
 import { getUnderlying } from "./utils/consts";
 
 export class LiquidationBot {
-  private unwatchesFn: Record<Address, () => void> = {};
+  private onMonitoringData: Record<
+    Address,
+    { data: LiquidationData; unwatchFn: () => void }
+  > = {};
+
   private blockNumber?: bigint = undefined;
-  private positions: Record<Address, LiquidationData> = {};
-  private lastUpdateGt?: bigint = undefined;
 
   private contractReader: ContractReader;
   private priceHandler: PriceHandler;
   private positionHandler: PositionHandler;
   private liquidationHandler: LiquidationHandler;
 
-  constructor({ pikeClient }: { pikeClient: PikeClient }) {
+  constructor({
+    pikeClient,
+    positionsToMonitorLimit = 2,
+    minCollateralUsdValue = 500,
+  }: {
+    pikeClient: PikeClient;
+    positionsToMonitorLimit?: number;
+    minCollateralUsdValue?: number;
+  }) {
     this.contractReader = new ContractReader(publicClient);
     this.priceHandler = new PriceHandler(this.contractReader);
-    this.positionHandler = new PositionHandler(this.priceHandler);
+    this.positionHandler = new PositionHandler(
+      this.priceHandler,
+      positionsToMonitorLimit,
+      minCollateralUsdValue
+    );
     this.liquidationHandler = new LiquidationHandler(
       this.contractReader,
       pikeClient
@@ -30,39 +43,28 @@ export class LiquidationBot {
   }
 
   startToMonitor = async () => {
-    await this.updateTokenPrices();
     await this.updatePositionsToMonitor();
   };
 
   stop = () => {
-    Object.keys(this.unwatchesFn).forEach((borrower) =>
+    Object.keys(this.onMonitoringData).forEach((borrower) =>
       this.stopMonitorPosition(borrower as Address)
     );
   };
 
-  private updateTokenPrices = async () => {
+  updatePositionsToMonitor = async () => {
     await this.priceHandler.updatePrices(this.blockNumber);
-  };
-
-  private updatePositionsToMonitor = async () => {
-    const userPositions = await getUserPositionsUpdatesAfterBlock(
-      this.lastUpdateGt
-    );
-
-    const liquidationData = userPositions
-      .map((pos) =>
-        this.positionHandler.getLiquidationDataFromAllUserPositions(pos)
-      )
-      .filter((data) => data !== undefined) as LiquidationData[];
-
-    liquidationData.forEach(this.startOrUpdateMonitorPosition);
+    await this.positionHandler.updatePositions();
+    const newDataToMonitor = this.positionHandler.getDataToMonitor();
+    this.stop();
+    newDataToMonitor.forEach(this.startOrUpdateMonitorPosition);
   };
 
   private startOrUpdateMonitorPosition = (data: LiquidationData) => {
     this.stopMonitorPosition(data.borrower);
 
-    const unwatchesFn = publicClient.watchBlocks({
-      onBlock: async (block) => {
+    const unwatchFn = publicClient.watchBlocks({
+      onBlock: async () => {
         const amountToLiquidate = data.biggestCollateralPosition.balance / 2n;
         const liquidationAllowed =
           await this.liquidationHandler.checkLiquidationAllowed({
@@ -91,13 +93,13 @@ export class LiquidationBot {
       },
     });
 
-    this.unwatchesFn[data.borrower] = unwatchesFn;
-    this.positions[data.borrower] = data;
+    this.onMonitoringData[data.borrower] = { data, unwatchFn };
   };
 
   private stopMonitorPosition = (borrower: Address) => {
-    if (this.unwatchesFn[borrower]) {
-      this.unwatchesFn[borrower]();
+    if (this.onMonitoringData[borrower]) {
+      this.onMonitoringData[borrower].unwatchFn();
+      delete this.onMonitoringData[borrower];
     }
   };
 
