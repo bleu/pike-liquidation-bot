@@ -62,14 +62,14 @@ export const positionUserE = {
   collateralPTokens: [pWETH] as const,
 };
 
-export const initialPricesBlock = 17828741n;
+export const initialPricesBlock = 18486556n;
 
-export const usdcLowPriceBlock = 17828742n;
-export const usdcHighPriceBlock = 17828746n;
-export const wethLowPriceBlock = 17828753n;
-export const wethHighPriceBlock = 17828757n;
-export const stEthLowPriceBlock = 17828765n;
-export const stEthHighPriceBlock = 17828769n;
+export const usdcLowPriceBlock = 18486558n;
+export const usdcHighPriceBlock = 18486562n;
+export const wethLowPriceBlock = 18486569n;
+export const wethHighPriceBlock = 18486573n;
+export const stEthLowPriceBlock = 18486581n;
+export const stEthHighPriceBlock = 18486586n;
 
 export const mockUserAPosition: AllUserPositions = {
   id: userA,
