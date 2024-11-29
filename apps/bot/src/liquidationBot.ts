@@ -85,40 +85,43 @@ export class LiquidationBot {
 
     const unwatchFn = publicClient.watchBlocks({
       onBlock: async (block) => {
-        const amountToLiquidate = data.biggestCollateralPosition.balance / 2n;
-
         logger.info(`Checking liquidation for borrower ${data.borrower}`, {
           class: "LiquidationBot",
           blockNumber: block.number.toString(),
         });
 
-        const liquidationAllowed =
-          await this.liquidationHandler.checkLiquidationAllowed({
+        const amountToLiquidate =
+          await this.liquidationHandler.checkAmountToLiquidate({
             borrowPToken: data.biggestBorrowPosition.marketId,
             borrower: data.borrower,
             collateralPToken: data.biggestCollateralPosition.marketId,
-            amountToLiquidate,
+            borrowAmount: data.biggestBorrowPosition.borrowed,
           });
 
-        if (liquidationAllowed) {
+        if (amountToLiquidate > 0n) {
           logger.info(`Liquidating position for borrower ${data.borrower}`, {
             class: "LiquidationBot",
             blockNumber: block.number.toString(),
             marketId: data.biggestBorrowPosition.marketId,
           });
 
-          await this.liquidationHandler.liquidatePosition({
-            borrower: data.borrower,
-            borrowPToken: data.biggestBorrowPosition.marketId,
-            amountToLiquidate,
-            collateralPToken: data.biggestCollateralPosition.marketId,
-            borrowTokenPrice: this.priceHandler.getPrice(
-              getUnderlying(data.biggestBorrowPosition.marketId)
-            ),
-            collateralTokenPrice: this.priceHandler.getPrice(
-              getUnderlying(data.biggestCollateralPosition.marketId)
-            ),
-          });
+          const liquidationReceipt =
+            await this.liquidationHandler.liquidatePosition({
+              borrower: data.borrower,
+              borrowPToken: data.biggestBorrowPosition.marketId,
+              amountToLiquidate,
+              collateralPToken: data.biggestCollateralPosition.marketId,
+              borrowTokenPrice: this.priceHandler.getPrice(
+                getUnderlying(data.biggestBorrowPosition.marketId)
+              ),
+              collateralTokenPrice: this.priceHandler.getPrice(
+                getUnderlying(data.biggestCollateralPosition.marketId)
+              ),
+            });
+
+          logger.info(
+            `Position liquidated for borrower ${data.borrower} on tx: ${liquidationReceipt.transactionHash}`
+          );
           return true;
         }
         return false;
