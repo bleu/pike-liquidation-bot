@@ -13,12 +13,17 @@ import {
   USDC_stETH_POOL,
 } from "@pike-liq-bot/utils";
 import { getUnderlying } from "#/utils/consts";
+import { logger } from "../services/logger";
 
 export class LiquidationHandler {
   constructor(
     private readonly contractReader: ContractReader,
     private readonly pikeClient: PikeClient
-  ) {}
+  ) {
+    logger.debug("Initializing LiquidationHandler", {
+      class: "LiquidationHandler",
+    });
+  }
 
   async checkLiquidationAllowed({
     borrowPToken,
@@ -33,15 +38,31 @@ export class LiquidationHandler {
     amountToLiquidate: bigint;
     blockNumber?: bigint;
   }) {
-    const liquidationErrorCode = await this.contractReader.readContract({
+    logger.debug("Checking liquidation allowance", {
+      class: "LiquidationHandler",
+      borrower,
+      borrowPToken,
+      collateralPToken,
+      amountToLiquidate: amountToLiquidate.toString(),
+      blockNumber: blockNumber?.toString(),
+    });
+
+    const liquidationErrorCode = (await this.contractReader.readContract({
       address: riskEngine,
       abi: riskEngineAbi,
       functionName: "liquidateBorrowAllowed",
       args: [borrowPToken, collateralPToken, borrower, amountToLiquidate],
       blockNumber,
+    })) as bigint;
+
+    const isAllowed = liquidationErrorCode == BigInt(0);
+    logger.info(`Liquidation check result: ${isAllowed}`, {
+      class: "LiquidationHandler",
+      borrower,
+      errorCode: liquidationErrorCode.toString(),
     });
 
-    return liquidationErrorCode == BigInt(0);
+    return isAllowed;
   }
 
   async checkAmountToLiquidate({
@@ -55,6 +76,14 @@ export class LiquidationHandler {
     collateralPToken: Address;
     blockNumber?: bigint;
   }) {
+    logger.debug("Checking amount to liquidate", {
+      class: "LiquidationHandler",
+      borrower,
+      borrowPToken,
+      collateralPToken,
+      blockNumber: blockNumber?.toString(),
+    });
+
     const amount = (await this.contractReader.readContract({
       address: borrowPToken,
       abi: pTokenAbi,
@@ -65,6 +94,13 @@ export class LiquidationHandler {
 
     const amountToLiquidate = amount / 2n;
 
+    logger.debug("Calculated liquidation amount", {
+      class: "LiquidationHandler",
+      borrower,
+      totalAmount: amount.toString(),
+      amountToLiquidate: amountToLiquidate.toString(),
+    });
+
     const liquidationAllowed = await this.checkLiquidationAllowed({
       borrowPToken,
       borrower,
@@ -73,7 +109,15 @@ export class LiquidationHandler {
       blockNumber,
     });
 
-    return liquidationAllowed ? amountToLiquidate : 0n;
+    const finalAmount = liquidationAllowed ? amountToLiquidate : 0n;
+    logger.info("Amount to liquidate determined", {
+      class: "LiquidationHandler",
+      borrower,
+      finalAmount: finalAmount.toString(),
+      liquidationAllowed,
+    });
+
+    return finalAmount;
   }
 
   getPoolAddress({
@@ -85,32 +129,54 @@ export class LiquidationHandler {
   }) {
     const borrowToken = getUnderlying(borrowPToken);
     const collateralToken = getUnderlying(collateralPToken);
+
+    logger.debug("Getting pool address", {
+      class: "LiquidationHandler",
+      borrowToken,
+      collateralToken,
+    });
+
     if (borrowToken === collateralToken) {
+      logger.error("Attempted to get pool for same tokens", {
+        class: "LiquidationHandler",
+        token: borrowToken,
+      });
       throw new Error("Same tokens");
     }
 
+    let pool: Address;
     if (
       [borrowToken, collateralToken].includes(WETH) &&
       [borrowToken, collateralToken].includes(USDC)
     ) {
-      return WETH_USDC_POOL;
-    }
-
-    if (
+      pool = WETH_USDC_POOL;
+    } else if (
       [borrowToken, collateralToken].includes(WETH) &&
       [borrowToken, collateralToken].includes(stETH)
     ) {
-      return WETH_stETH_POOL;
-    }
-
-    if (
+      pool = WETH_stETH_POOL;
+    } else if (
       [borrowToken, collateralToken].includes(USDC) &&
       [borrowToken, collateralToken].includes(stETH)
     ) {
-      return USDC_stETH_POOL;
+      pool = USDC_stETH_POOL;
+    } else {
+      logger.error("No pool found for token pair", {
+        class: "LiquidationHandler",
+        borrowToken,
+        collateralToken,
+      });
+      throw new Error("No pool found");
     }
 
-    throw new Error("No pool found");
+    logger.debug("Pool address found", {
+      class: "LiquidationHandler",
+      pool,
+      borrowToken,
+      collateralToken,
+    });
+
+    return pool;
   }
 
   async liquidatePosition({
@@ -128,12 +194,37 @@ export class LiquidationHandler {
     borrowTokenPrice: bigint;
     collateralTokenPrice: bigint;
   }) {
+    logger.info("Initiating position liquidation", {
+      class: "LiquidationHandler",
+      borrower,
+      borrowPToken,
+      collateralPToken,
+      amountToLiquidate: amountToLiquidate.toString(),
+    });
+
     const expectedAmountOut =
       (amountToLiquidate * borrowTokenPrice) / collateralTokenPrice;
     const minAmountOut = (expectedAmountOut * 1n) / 100n;
+
+    logger.debug("Calculated liquidation amounts", {
+      class: "LiquidationHandler",
+      expectedAmountOut: expectedAmountOut.toString(),
+      minAmountOut: minAmountOut.toString(),
+      borrowTokenPrice: borrowTokenPrice.toString(),
+      collateralTokenPrice: collateralTokenPrice.toString(),
+    });
+
     const pool = this.getPoolAddress({
       borrowPToken,
       collateralPToken,
+    });
+
+    logger.info("Executing liquidation", {
+      class: "LiquidationHandler",
+      borrower,
+      pool,
+      amountToLiquidate: amountToLiquidate.toString(),
+      minAmountOut: minAmountOut.toString(),
     });
 
     return this.pikeClient.liquidatePosition({

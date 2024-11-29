@@ -6,6 +6,7 @@ import { LiquidationHandler } from "./handlers/liquidationHandler";
 import { ContractReader } from "./services/contractReader";
 import { PikeClient, publicClient } from "./services/clients";
 import { getUnderlying } from "./utils/consts";
+import { logger } from "./services/logger";
 
 export class LiquidationBot {
   private onMonitoringData: Record<
@@ -52,20 +53,43 @@ export class LiquidationBot {
     );
   };
 
-  updatePositionsToMonitor = async () => {
+  public updatePositionsToMonitor = async () => {
+    logger.debug("Updating positions...", {
+      class: "LiquidationBot",
+    });
+
     await this.priceHandler.updatePrices(this.blockNumber);
     await this.positionHandler.updatePositions();
     const newDataToMonitor = this.positionHandler.getDataToMonitor();
-    this.stop();
+
+    logger.debug(`Found ${newDataToMonitor.length} positions to monitor`, {
+      class: "LiquidationBot",
+    });
+
+    // Stop existing position monitoring
+    Object.keys(this.onMonitoringData).forEach((borrower) =>
+      this.stopMonitorPosition(borrower as Address)
+    );
+
     newDataToMonitor.forEach(this.startOrUpdateMonitorPosition);
   };
 
   private startOrUpdateMonitorPosition = (data: LiquidationData) => {
     this.stopMonitorPosition(data.borrower);
 
+    logger.debug(`Starting monitoring for borrower ${data.borrower}`, {
+      class: "LiquidationBot",
+    });
+
     const unwatchFn = publicClient.watchBlocks({
-      onBlock: async () => {
+      onBlock: async (block) => {
         const amountToLiquidate = data.biggestCollateralPosition.balance / 2n;
+
+        logger.info(`Checking liquidation for borrower ${data.borrower}`, {
+          class: "LiquidationBot",
+          blockNumber: block.number.toString(),
+        });
+
         const liquidationAllowed =
           await this.liquidationHandler.checkLiquidationAllowed({
             borrowPToken: data.biggestBorrowPosition.marketId,
@@ -75,6 +99,12 @@ export class LiquidationBot {
           });
 
         if (liquidationAllowed) {
+          logger.info(`Liquidating position for borrower ${data.borrower}`, {
+            class: "LiquidationBot",
+            blockNumber: block.number.toString(),
+            marketId: data.biggestBorrowPosition.marketId,
+          });
+
           await this.liquidationHandler.liquidatePosition({
             borrower: data.borrower,
             borrowPToken: data.biggestBorrowPosition.marketId,
