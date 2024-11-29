@@ -1,5 +1,5 @@
 import { ponder } from "@/generated";
-import { market, position } from "../ponder.schema";
+import { market, position, riskEngine } from "../ponder.schema";
 import { createOrUpdateUser } from "./utils";
 
 // Handler for MarketListed event
@@ -9,6 +9,7 @@ ponder.on("RiskEngine:MarketListed", async ({ event, context }) => {
 
   await context.db.update(market, { id: pToken }).set({
     isListed: true,
+    riskEngineId: event.log.address,
     lastUpdated: BigInt(event.block.timestamp),
   });
 });
@@ -90,5 +91,53 @@ ponder.on("RiskEngine:MarketExited", async ({ event, context }) => {
     .onConflictDoUpdate({
       isOnMarket: false,
       lastUpdated: event.block.timestamp,
+    });
+});
+
+ponder.on("RiskEngine:NewOracleEngine", async ({ event, context }) => {
+  const { newOracleEngine } = event.args;
+  const riskEngineId = event.log.address;
+  await context.db
+    .insert(riskEngine)
+    .values({
+      id: riskEngineId,
+      oracleEngine: newOracleEngine,
+      lastUpdated: BigInt(event.block.timestamp),
+    })
+    .onConflictDoUpdate({
+      oracleEngine: newOracleEngine,
+      lastUpdated: BigInt(event.block.timestamp),
+    });
+});
+
+ponder.on("RiskEngine:NewCloseFactor", async ({ event, context }) => {
+  const { newCloseFactorMantissa } = event.args;
+  const riskEngineId = event.log.address;
+  await context.db
+    .insert(riskEngine)
+    .values({
+      id: riskEngineId,
+      closeFactorMantissa: newCloseFactorMantissa,
+      lastUpdated: BigInt(event.block.timestamp),
+    })
+    .onConflictDoUpdate({
+      closeFactorMantissa: newCloseFactorMantissa,
+      lastUpdated: BigInt(event.block.timestamp),
+    });
+});
+
+ponder.on("RiskEngine:NewLiquidationIncentive", async ({ event, context }) => {
+  const { newLiquidationIncentiveMantissa } = event.args;
+  const riskEngineId = event.log.address;
+  await context.db
+    .insert(riskEngine)
+    .values({
+      id: riskEngineId,
+      liquidationIncentiveMantissa: newLiquidationIncentiveMantissa,
+      lastUpdated: BigInt(event.block.timestamp),
+    })
+    .onConflictDoUpdate({
+      liquidationIncentiveMantissa: newLiquidationIncentiveMantissa,
+      lastUpdated: BigInt(event.block.timestamp),
     });
 });

@@ -42,7 +42,7 @@ ponder.on("pToken:NewRiskEngine", async ({ event, context }) => {
   const pToken = event.log.address;
 
   await context.db.update(market, { id: pToken }).set({
-    riskEngine: newRiskEngine,
+    riskEngineId: newRiskEngine,
     lastUpdated: BigInt(event.block.timestamp),
   });
 });
@@ -54,7 +54,11 @@ ponder.on("pToken:NewProtocolSeizeShare", async ({ event, context }) => {
 
   await context.db
     .insert(market)
-    .values({ id: pToken })
+    .values({
+      id: pToken,
+      protocolSeizeShareMantissa: newProtocolSeizeShareMantissa,
+      lastUpdated: BigInt(event.block.timestamp),
+    })
     .onConflictDoUpdate({
       protocolSeizeShareMantissa: newProtocolSeizeShareMantissa,
       lastUpdated: BigInt(event.block.timestamp),
