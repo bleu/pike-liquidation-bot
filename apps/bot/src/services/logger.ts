@@ -1,10 +1,11 @@
-// src/services/logger.ts
-
 import winston from "winston";
 import path from "path";
 
 // Get log level from environment variable, default to 'info'
 const logLevel = (process.env.LOG_LEVEL || "info").toLowerCase();
+
+// Check if we're in test environment
+const isTest = process.env.NODE_ENV === "test";
 
 // Custom format to include metadata
 const customFormat = winston.format.printf(
@@ -39,6 +40,22 @@ const getCallerInfo = () => {
   };
 };
 
+// Create transports array based on environment
+const transports = isTest
+  ? [] // No transports in test mode
+  : [
+      new winston.transports.Console({
+        format: winston.format.combine(winston.format.colorize(), customFormat),
+      }),
+      new winston.transports.File({
+        filename: "logs/error.log",
+        level: "error",
+      }),
+      new winston.transports.File({
+        filename: "logs/combined.log",
+      }),
+    ];
+
 // Create base logger
 const baseLogger = winston.createLogger({
   level: logLevel,
@@ -53,32 +70,22 @@ const baseLogger = winston.createLogger({
     winston.format.metadata({ fillExcept: ["message", "level", "timestamp"] }),
     customFormat
   ),
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(winston.format.colorize(), customFormat),
-    }),
-    new winston.transports.File({
-      filename: "logs/error.log",
-      level: "error",
-    }),
-    new winston.transports.File({
-      filename: "logs/combined.log",
-    }),
-  ],
+  transports,
+  silent: isTest, // This will completely silence the logger in test mode
 });
 
 // Create wrapper with automatic caller info
 export const logger = {
   error: (message: string, metadata: Record<string, any> = {}) => {
-    baseLogger.error(message, { ...getCallerInfo(), ...metadata });
+    if (!isTest) baseLogger.error(message, { ...getCallerInfo(), ...metadata });
   },
   warn: (message: string, metadata: Record<string, any> = {}) => {
-    baseLogger.warn(message, { ...getCallerInfo(), ...metadata });
+    if (!isTest) baseLogger.warn(message, { ...getCallerInfo(), ...metadata });
   },
   info: (message: string, metadata: Record<string, any> = {}) => {
-    baseLogger.info(message, { ...getCallerInfo(), ...metadata });
+    if (!isTest) baseLogger.info(message, { ...getCallerInfo(), ...metadata });
   },
   debug: (message: string, metadata: Record<string, any> = {}) => {
-    baseLogger.debug(message, { ...getCallerInfo(), ...metadata });
+    if (!isTest) baseLogger.debug(message, { ...getCallerInfo(), ...metadata });
   },
 };
