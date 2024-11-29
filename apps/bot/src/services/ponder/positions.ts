@@ -1,9 +1,8 @@
 import { gql, GraphQLClient } from "graphql-request";
 
 import { type Address } from "viem";
-import { AllUserPositions } from "../types";
-
-export const gqlClient = new GraphQLClient("http://localhost:42069/");
+import { AllUserPositions } from "../../types";
+import { gqlClient } from "./client";
 
 interface IQuery {
   users: {
@@ -45,7 +44,7 @@ export async function getUserPositionsUpdatesAfterBlock(
   lastUpdateGt?: bigint
 ): Promise<AllUserPositions[]> {
   const queryResponse = await gqlClient.request<IQuery>(QUERY, {
-    lastUpdateGt,
+    lastUpdateGt: lastUpdateGt ? String(lastUpdateGt) : undefined,
   });
 
   return queryResponse.users.items.map((user) => ({

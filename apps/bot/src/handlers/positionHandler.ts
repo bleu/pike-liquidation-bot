@@ -7,7 +7,7 @@ import {
 import { PriceHandler } from "./priceHandler";
 import { getDecimals, getUnderlying } from "#/utils/consts";
 import { Address, formatUnits } from "viem";
-import { getUserPositionsUpdatesAfterBlock } from "#/services/ponderQuerier";
+import { getUserPositionsUpdatesAfterBlock } from "#/services/ponder/positions";
 import { logger } from "../services/logger";
 
 export class PositionHandler {
@@ -55,10 +55,13 @@ export class PositionHandler {
       ({ lastUpdated }) => lastUpdated
     );
 
-    this.lastUpdateGt = BigInt(Math.max(...allUpdatedAt.map(Number)));
+    this.lastUpdateGt = allUpdatedAt.length
+      ? BigInt(Math.max(...allUpdatedAt.map(Number)))
+      : this.lastUpdateGt;
+
     logger.debug("Updated lastUpdateGt", {
       class: "PositionHandler",
-      newLastUpdateGt: this.lastUpdateGt.toString(),
+      newLastUpdateGt: this.lastUpdateGt?.toString(),
     });
   }
 
