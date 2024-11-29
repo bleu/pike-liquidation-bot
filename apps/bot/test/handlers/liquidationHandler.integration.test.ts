@@ -15,7 +15,12 @@ import {
   userE,
   wethLowPriceBlock,
 } from "../mocks/utils";
-import { pTokenAbi } from "@pike-liq-bot/utils";
+import {
+  liquidationHelper,
+  liquidationHelperAbi,
+  pTokenAbi,
+} from "@pike-liq-bot/utils";
+import { encodeFunctionData, parseUnits } from "viem";
 
 describe("LiquidationHandler with real client", () => {
   // Create instances that will be used across all tests
@@ -105,6 +110,45 @@ describe("LiquidationHandler with real client", () => {
           });
 
         expect(amountToLiquidate).toBe(0n);
+      });
+
+      describe("liquidatePosition", () => {
+        test("should liquidate position", async () => {
+          const amountToLiquidate =
+            await liquidationHandler.checkAmountToLiquidate({
+              ...params,
+              blockNumber: wethLowPriceBlock,
+            });
+
+          const borrowTokenPrice = parseUnits("2000", 6);
+          const collateralTokenPrice = parseUnits("1000", 6);
+
+          const expectedAmountOut =
+            (amountToLiquidate * borrowTokenPrice) / collateralTokenPrice;
+          const minAmountOut = (expectedAmountOut * 1n) / 100n;
+          const pool = liquidationHandler.getPoolAddress({
+            borrowPToken: params.borrowPToken,
+            collateralPToken: params.collateralPToken,
+          });
+
+          await publicClient.simulateContract({
+            address: liquidationHelper,
+            abi: liquidationHelperAbi,
+            functionName: "liquidate",
+            args: [
+              pool,
+              params.borrowPToken,
+              params.collateralPToken,
+              params.borrower,
+              amountToLiquidate,
+              minAmountOut,
+            ],
+            account: walletClient.account.address,
+            blockNumber: wethLowPriceBlock,
+          });
+
+          expect(true).to.be.true; // Pass the test since the last function didn't reverted
+        });
       });
 
       test("should handle same user at different blocks", async () => {
