@@ -8,3 +8,10 @@ export const riskEngine = "0xae7aa23416d5d6d56512f390d67047517d0af56a" as const;
 export const oracleEngine =
   "0xc64aab296472ad1e52ed6e9baea8a504d3000ab1" as const;
 export const mockOracle = "0xc34df3ce38773ae01a61a6cfc93a76060fbb5d84" as const;
+
+export const WETH_USDC_POOL =
+  "0x0373F48EbE9B42227A54db032f8335921127DDf2" as const;
+export const WETH_stETH_POOL =
+  "0x9B6816c6C6Dda851480d4b1158AAC128C54Ed36e" as const;
+export const USDC_stETH_POOL =
+  "0xd0Db24c6234c3d75188F09c798cb67AED39e0c6a" as const;

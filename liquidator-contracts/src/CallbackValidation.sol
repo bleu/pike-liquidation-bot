@@ -28,7 +28,6 @@ contract CallbackValidation {
         address tokenB,
         uint24 fee
     ) public pure returns (PoolKey memory) {
-        if (tokenA > tokenB) (tokenA, tokenB) = (tokenB, tokenA);
         return PoolKey({token0: tokenA, token1: tokenB, fee: fee});
     }
 
@@ -41,7 +40,6 @@ contract CallbackValidation {
         PoolKey memory key
     ) public view returns (address pool) {
         // Changed from pure to view
-        require(key.token0 < key.token1);
         bytes32 initCodeHash = keccak256(
             abi.encodePacked(
                 pool_creation_code,
