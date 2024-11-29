@@ -60,6 +60,8 @@ export class LiquidationBot {
 
     await this.priceHandler.updatePrices(this.blockNumber);
     await this.positionHandler.updatePositions();
+    await this.liquidationHandler.updateRiskEngineParameters();
+
     const newDataToMonitor = this.positionHandler.getDataToMonitor();
 
     logger.debug(`Found ${newDataToMonitor.length} positions to monitor`, {

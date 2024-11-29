@@ -8,10 +8,10 @@ import {
   mockUserBPosition,
 } from "./mocks/utils";
 import type { Block } from "viem";
-import { getUserPositionsUpdatesAfterBlock } from "#/services/ponderQuerier";
+import { getUserPositionsUpdatesAfterBlock } from "#/services/ponder/positions";
 
 // Mock module first
-vi.mock("#/services/ponderQuerier", () => ({
+vi.mock("#/services/ponder/positions", () => ({
   getUserPositionsUpdatesAfterBlock: vi.fn(),
 }));
 

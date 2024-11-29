@@ -45,6 +45,8 @@ describe("LiquidationHandler", () => {
 
     const contractReader = new ContractReader(publicClient);
     liquidationHandler = new LiquidationHandler(contractReader, mockPikeClient);
+    liquidationHandler.closeFactorMantissa = 500000000000000000n;
+    liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
   });
 
   test("should check if liquidation is allowed", async () => {

@@ -20,7 +20,7 @@ import {
   liquidationHelperAbi,
   pTokenAbi,
 } from "@pike-liq-bot/utils";
-import { encodeFunctionData, parseUnits } from "viem";
+import { parseUnits } from "viem";
 
 describe("LiquidationHandler with real client", () => {
   // Create instances that will be used across all tests
@@ -30,6 +30,8 @@ describe("LiquidationHandler with real client", () => {
   const pikeClient = new PikeClient(walletClient);
   const contractReader = new ContractReader(publicClient);
   const liquidationHandler = new LiquidationHandler(contractReader, pikeClient);
+  liquidationHandler.closeFactorMantissa = 500000000000000000n;
+  liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
 
   describe("checkAmountToLiquidate", () => {
     const params = {
