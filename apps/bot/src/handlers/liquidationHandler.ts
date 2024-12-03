@@ -36,9 +36,10 @@ export class LiquidationHandler {
 
     const riskEngineParameters = await getRiskEngineParameters();
 
-    this.liquidationIncentiveMantissa =
-      riskEngineParameters.liquidationIncentiveMantissa;
-    this.closeFactorMantissa = riskEngineParameters.closeFactorMantissa;
+    this.liquidationIncentiveMantissa = BigInt(
+      riskEngineParameters.liquidationIncentiveMantissa
+    );
+    this.closeFactorMantissa = BigInt(riskEngineParameters.closeFactorMantissa);
 
     logger.info("Updated risk engine parameters", {
       class: "LiquidationHandler",
@@ -93,10 +94,12 @@ export class LiquidationHandler {
     borrower,
     collateralPToken,
     blockNumber,
+    borrowAmount,
   }: {
     borrower: Address;
     borrowPToken: Address;
     collateralPToken: Address;
+    borrowAmount: bigint;
     blockNumber?: bigint;
   }) {
     logger.debug("Checking amount to liquidate", {
@@ -121,7 +124,7 @@ export class LiquidationHandler {
     logger.debug("Calculated liquidation amount", {
       class: "LiquidationHandler",
       borrower,
-      totalAmount: amount.toString(),
+      totalAmount: borrowAmount.toString(),
       amountToLiquidate: amountToLiquidate.toString(),
     });
 
