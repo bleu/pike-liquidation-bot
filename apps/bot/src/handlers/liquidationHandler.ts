@@ -110,8 +110,16 @@ export class LiquidationHandler {
       blockNumber: blockNumber?.toString(),
     });
 
+    const amount = (await this.contractReader.readContract({
+      address: borrowPToken,
+      abi: pTokenAbi,
+      functionName: "borrowBalanceCurrent",
+      args: [borrower],
+      blockNumber,
+    })) as bigint;
+
     const amountToLiquidate =
-      (borrowAmount * this.closeFactorMantissa) / parseUnits("1", 18);
+      (amount * this.closeFactorMantissa) / parseUnits("1", 18);
 
     logger.debug("Calculated liquidation amount", {
       class: "LiquidationHandler",

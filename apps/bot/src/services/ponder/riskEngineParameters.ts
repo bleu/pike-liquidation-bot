@@ -21,7 +21,8 @@ const QUERY = gql`
   }
 `;
 
-export async function getRiskEngineParameters() {
+
+export async function getRiskEngineParameters(lastUpdateGt?: bigint) {
   const queryResponse = await gqlClient.request<IQuery>(QUERY, {
     riskEngineId: riskEngine,
   });
