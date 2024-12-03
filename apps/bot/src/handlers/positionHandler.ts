@@ -8,6 +8,7 @@ import { PriceHandler } from "./priceHandler";
 import { getDecimals, getUnderlying } from "#/utils/consts";
 import { Address, formatUnits } from "viem";
 import { getUserPositionsUpdatesAfterBlock } from "#/services/ponderQuerier";
+import { logger } from "../services/logger";
 
 export class PositionHandler {
   public allPositions: Record<Address, AllUserPositions> = {};
@@ -17,15 +18,37 @@ export class PositionHandler {
     private readonly priceHandler: PriceHandler,
     public positionsToMonitorLimit: number = 2,
     public minCollateralUsdValue: number = 500
-  ) {}
+  ) {
+    logger.debug("Initializing PositionHandler", {
+      class: "PositionHandler",
+      positionsToMonitorLimit,
+      minCollateralUsdValue,
+    });
+  }
 
   async updatePositions() {
+    logger.debug("Updating positions...", {
+      class: "PositionHandler",
+      lastUpdateGt: this.lastUpdateGt?.toString(),
+    });
+
     const newUserPositions = await getUserPositionsUpdatesAfterBlock(
       this.lastUpdateGt
     );
 
+    logger.info(
+      `Retrieved ${Object.keys(newUserPositions).length} new positions`,
+      {
+        class: "PositionHandler",
+      }
+    );
+
     newUserPositions.forEach((userPosition) => {
       this.allPositions[userPosition.id] = userPosition;
+      logger.debug(`Updated position for user ${userPosition.id}`, {
+        class: "PositionHandler",
+        positionsCount: userPosition.positions.length,
+      });
     });
 
     const allUpdatedAt = Object.values(newUserPositions).map(
@@ -33,9 +56,17 @@ export class PositionHandler {
     );
 
     this.lastUpdateGt = BigInt(Math.max(...allUpdatedAt.map(Number)));
+    logger.debug("Updated lastUpdateGt", {
+      class: "PositionHandler",
+      newLastUpdateGt: this.lastUpdateGt.toString(),
+    });
   }
 
   getAllPositionsWithUsdValue(): AllUserPositionsWithValue[] {
+    logger.debug("Calculating USD values for all positions", {
+      class: "PositionHandler",
+    });
+
     return Object.values(this.allPositions).map((userPosition) => {
       const userPositionsWithUsdValue = userPosition.positions.map(
         (position) => {
@@ -49,6 +80,18 @@ export class PositionHandler {
           const borrowedUsdValue = Number(
             formatUnits(position.borrowed * tokenPrice, 6 + decimals)
           );
+
+          logger.info(
+            `Calculated USD values for position in market ${position.marketId}`,
+            {
+              class: "PositionHandler",
+              user: userPosition.id,
+              marketId: position.marketId,
+              balanceUsdValue,
+              borrowedUsdValue,
+            }
+          );
+
           return {
             ...position,
             balanceUsdValue,
@@ -56,6 +99,7 @@ export class PositionHandler {
           };
         }
       );
+
       const onMarketPositions = userPositionsWithUsdValue.filter(
         (position) => position.isOnMarket
       );
@@ -65,6 +109,12 @@ export class PositionHandler {
       const totalBorrowedUsdValue = onMarketPositions
         .map((position) => position.borrowedUsdValue)
         .reduce((acc, value) => acc + value, 0);
+
+      logger.debug(`Calculated totals for user ${userPosition.id}`, {
+        class: "PositionHandler",
+        totalCollateralUsdValue,
+        totalBorrowedUsdValue,
+      });
 
       return {
         ...userPosition,
@@ -76,11 +126,23 @@ export class PositionHandler {
   }
 
   getDataToMonitor(): LiquidationData[] {
+    logger.debug("Getting positions to monitor", {
+      class: "PositionHandler",
+    });
+
     const allPositionsWithValue = this.getAllPositionsWithUsdValue();
     const allPositionsFiltered = allPositionsWithValue.filter(
       (position) =>
         position.totalCollateralUsdValue > this.minCollateralUsdValue
     );
+
+    logger.debug(`Filtered positions by minimum collateral value`, {
+      class: "PositionHandler",
+      totalPositions: allPositionsWithValue.length,
+      filteredPositions: allPositionsFiltered.length,
+      minCollateralUsdValue: this.minCollateralUsdValue,
+    });
+
     const allPositionsToMonitor = allPositionsFiltered
       .sort((a, b) => {
         const diffA =
@@ -91,20 +153,43 @@ export class PositionHandler {
           (b.totalCollateralUsdValue - b.totalBorrowedUsdValue) /
           b.totalCollateralUsdValue;
 
-        return diffA - diffB; // Sort ascending to get smallest differences first
+        return diffA - diffB;
       })
       .slice(0, this.positionsToMonitorLimit);
-    return allPositionsToMonitor
+
+    logger.info(
+      `Selected ${allPositionsToMonitor.length} positions to monitor`,
+      {
+        class: "PositionHandler",
+      }
+    );
+
+    const liquidationData = allPositionsToMonitor
       .map((allPositions) =>
         this.getLiquidationDataFromAllUserPositions(allPositions)
       )
       .filter((data) => !!data);
+
+    logger.debug(`Generated liquidation data`, {
+      class: "PositionHandler",
+      positionsCount: liquidationData.length,
+    });
+
+    return liquidationData;
   }
 
   findBiggestPositionTypeFromAllUserPositions(
     userPositions: AllUserPositionsWithValue,
     isCollateral: boolean
   ) {
+    const positionType = isCollateral ? "collateral" : "borrow";
+    logger.info(
+      `Finding biggest ${positionType} position for user ${userPositions.id}`,
+      {
+        class: "PositionHandler",
+      }
+    );
+
     const biggestPosition = userPositions.positions.reduce(
       (biggest, position) => {
         if (!position.isOnMarket) return biggest;
@@ -120,20 +205,46 @@ export class PositionHandler {
       defaultUserPositionData
     );
 
+    if (biggestPosition.isOnMarket) {
+      logger.info(`Found biggest ${positionType} position`, {
+        class: "PositionHandler",
+        user: userPositions.id,
+        marketId: biggestPosition.marketId,
+        amount: isCollateral
+          ? biggestPosition.balanceUsdValue
+          : biggestPosition.borrowedUsdValue,
+      });
+    }
+
     return biggestPosition.isOnMarket ? biggestPosition : undefined;
   }
 
   getLiquidationDataFromAllUserPositions(
     userPosition: AllUserPositionsWithValue
   ): LiquidationData | undefined {
+    logger.info(`Getting liquidation data for user ${userPosition.id}`, {
+      class: "PositionHandler",
+    });
+
     const biggestBorrowPosition =
       this.findBiggestPositionTypeFromAllUserPositions(userPosition, false);
     const biggestCollateralPosition =
       this.findBiggestPositionTypeFromAllUserPositions(userPosition, true);
 
     if (!biggestBorrowPosition || !biggestCollateralPosition) {
+      logger.debug(`No valid liquidation data for user ${userPosition.id}`, {
+        class: "PositionHandler",
+        hasBorrowPosition: !!biggestBorrowPosition,
+        hasCollateralPosition: !!biggestCollateralPosition,
+      });
       return undefined;
     }
+
+    logger.debug(`Generated liquidation data for user ${userPosition.id}`, {
+      class: "PositionHandler",
+      borrowMarketId: biggestBorrowPosition.marketId,
+      collateralMarketId: biggestCollateralPosition.marketId,
+    });
 
     return {
       borrower: userPosition.id,
