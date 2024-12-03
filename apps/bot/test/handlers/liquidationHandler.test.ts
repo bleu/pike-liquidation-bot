@@ -45,6 +45,8 @@ describe("LiquidationHandler", () => {
 
     const contractReader = new ContractReader(publicClient);
     liquidationHandler = new LiquidationHandler(contractReader, mockPikeClient);
+    liquidationHandler.closeFactorMantissa = 500000000000000000n;
+    liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
   });
 
   test("should check if liquidation is allowed", async () => {
@@ -69,29 +71,27 @@ describe("LiquidationHandler", () => {
 
   test("should check amount to liquidate", async () => {
     // Mock borrow balance
-    vi.mocked(publicClient.readContract)
-      .mockResolvedValueOnce(1000n) // borrowBalanceCurrent
-      .mockResolvedValueOnce(0n); // liquidateBorrowAllowed
+    vi.mocked(publicClient.readContract).mockResolvedValueOnce(0n); // liquidateBorrowAllowed
 
     const amount = await liquidationHandler.checkAmountToLiquidate({
       borrowPToken: pWETH,
       borrower: "0x123" as const,
       collateralPToken: pUSDC,
+      borrowAmount: 1000n,
     });
 
     expect(amount).toBe(500n); // Half of borrow balance
-    expect(publicClient.readContract).toHaveBeenCalledTimes(2);
+    expect(publicClient.readContract).toHaveBeenCalledTimes(1);
   });
 
   test("should return 0 if liquidation not allowed", async () => {
-    vi.mocked(publicClient.readContract)
-      .mockResolvedValueOnce(1000n) // borrowBalanceCurrent
-      .mockResolvedValueOnce(1n); // liquidateBorrowAllowed (not 0, means not allowed)
+    vi.mocked(publicClient.readContract).mockResolvedValueOnce(1n); // liquidateBorrowAllowed (not 0, means not allowed)
 
     const amount = await liquidationHandler.checkAmountToLiquidate({
       borrowPToken: pWETH,
       borrower: "0x123" as const,
       collateralPToken: pUSDC,
+      borrowAmount: 1000n,
     });
 
     expect(amount).toBe(0n);

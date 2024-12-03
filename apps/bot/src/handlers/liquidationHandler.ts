@@ -1,4 +1,4 @@
-import { Address } from "viem";
+import { Address, parseUnits } from "viem";
 import { ContractReader } from "../services/contractReader";
 import { PikeClient } from "../services/clients";
 import {
@@ -14,14 +14,38 @@ import {
 } from "@pike-liq-bot/utils";
 import { getUnderlying } from "#/utils/consts";
 import { logger } from "../services/logger";
+import { getRiskEngineParameters } from "#/services/ponder/riskEngineParameters";
 
 export class LiquidationHandler {
+  public liquidationIncentiveMantissa: bigint = 0n;
+  public closeFactorMantissa: bigint = 0n;
+
   constructor(
     private readonly contractReader: ContractReader,
     private readonly pikeClient: PikeClient
   ) {
     logger.debug("Initializing LiquidationHandler", {
       class: "LiquidationHandler",
+    });
+  }
+
+  async updateRiskEngineParameters() {
+    logger.debug("Updating risk engine parameters", {
+      class: "LiquidationHandler",
+    });
+
+    const riskEngineParameters = await getRiskEngineParameters();
+
+    this.liquidationIncentiveMantissa = BigInt(
+      riskEngineParameters.liquidationIncentiveMantissa
+    );
+    this.closeFactorMantissa = BigInt(riskEngineParameters.closeFactorMantissa);
+
+    logger.info("Updated risk engine parameters", {
+      class: "LiquidationHandler",
+      liquidationIncentiveMantissa:
+        this.liquidationIncentiveMantissa.toString(),
+      closeFactorMantissa: this.closeFactorMantissa.toString(),
     });
   }
 
@@ -70,10 +94,12 @@ export class LiquidationHandler {
     borrower,
     collateralPToken,
     blockNumber,
+    borrowAmount,
   }: {
     borrower: Address;
     borrowPToken: Address;
     collateralPToken: Address;
+    borrowAmount: bigint;
     blockNumber?: bigint;
   }) {
     logger.debug("Checking amount to liquidate", {
@@ -92,12 +118,13 @@ export class LiquidationHandler {
       blockNumber,
     })) as bigint;
 
-    const amountToLiquidate = amount / 2n;
+    const amountToLiquidate =
+      (amount * this.closeFactorMantissa) / parseUnits("1", 18);
 
     logger.debug("Calculated liquidation amount", {
       class: "LiquidationHandler",
       borrower,
-      totalAmount: amount.toString(),
+      totalAmount: borrowAmount.toString(),
       amountToLiquidate: amountToLiquidate.toString(),
     });
 
@@ -202,9 +229,17 @@ export class LiquidationHandler {
       amountToLiquidate: amountToLiquidate.toString(),
     });
 
-    const expectedAmountOut =
+    const amountToLiquidateInCollateralToken =
       (amountToLiquidate * borrowTokenPrice) / collateralTokenPrice;
-    const minAmountOut = (expectedAmountOut * 1n) / 100n;
+
+    const expectedAmountOut =
+      (amountToLiquidateInCollateralToken -
+        (this.liquidationIncentiveMantissa - parseUnits("1", 18))) /
+      parseUnits("1", 18);
+
+    // 90% of expected amount out to cover the pool fee cost
+    // if use a real pool to perform the liquidation this would be more complex and involve slippage, mev, etc
+    const minAmountOut = (expectedAmountOut * 90n) / 100n;
 
     logger.debug("Calculated liquidation amounts", {
       class: "LiquidationHandler",
