@@ -313,14 +313,14 @@ export class PikeClient {
     pool,
     borrowPToken,
     borrower,
-    amountToLiquidate,
+    repayAmount,
     collateralPToken,
     minAmountOut,
   }: {
     pool: Address;
     borrower: Address;
     borrowPToken: Address;
-    amountToLiquidate: bigint;
+    repayAmount: bigint;
     collateralPToken: Address;
     minAmountOut: bigint;
   }) {
@@ -334,7 +334,7 @@ export class PikeClient {
           borrowPToken,
           collateralPToken,
           borrower,
-          amountToLiquidate,
+          repayAmount,
           minAmountOut,
         ],
       }),

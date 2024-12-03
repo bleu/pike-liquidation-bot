@@ -2,7 +2,6 @@ import {
   AllUserPositions,
   AllUserPositionsWithValue,
   LiquidationData,
-  defaultUserPositionData,
 } from "../types";
 import { PriceHandler } from "./priceHandler";
 import { getDecimals, getUnderlying } from "#/utils/consts";
@@ -128,7 +127,7 @@ export class PositionHandler {
     });
   }
 
-  getDataToMonitor(): LiquidationData[] {
+  getDataToMonitor(): AllUserPositionsWithValue[] {
     logger.debug("Getting positions to monitor", {
       class: "PositionHandler",
     });
@@ -167,92 +166,6 @@ export class PositionHandler {
       }
     );
 
-    const liquidationData = allPositionsToMonitor
-      .map((allPositions) =>
-        this.getLiquidationDataFromAllUserPositions(allPositions)
-      )
-      .filter((data) => !!data);
-
-    logger.debug(`Generated liquidation data`, {
-      class: "PositionHandler",
-      positionsCount: liquidationData.length,
-    });
-
-    return liquidationData;
-  }
-
-  findBiggestPositionTypeFromAllUserPositions(
-    userPositions: AllUserPositionsWithValue,
-    isCollateral: boolean
-  ) {
-    const positionType = isCollateral ? "collateral" : "borrow";
-    logger.info(
-      `Finding biggest ${positionType} position for user ${userPositions.id}`,
-      {
-        class: "PositionHandler",
-      }
-    );
-
-    const biggestPosition = userPositions.positions.reduce(
-      (biggest, position) => {
-        if (!position.isOnMarket) return biggest;
-        const biggestAmount = isCollateral
-          ? biggest.balanceUsdValue
-          : biggest.borrowedUsdValue;
-        const positionAmount = isCollateral
-          ? position.balanceUsdValue
-          : position.borrowedUsdValue;
-
-        return positionAmount > biggestAmount ? position : biggest;
-      },
-      defaultUserPositionData
-    );
-
-    if (biggestPosition.isOnMarket) {
-      logger.info(`Found biggest ${positionType} position`, {
-        class: "PositionHandler",
-        user: userPositions.id,
-        marketId: biggestPosition.marketId,
-        amount: isCollateral
-          ? biggestPosition.balanceUsdValue
-          : biggestPosition.borrowedUsdValue,
-      });
-    }
-
-    return biggestPosition.isOnMarket ? biggestPosition : undefined;
-  }
-
-  getLiquidationDataFromAllUserPositions(
-    userPosition: AllUserPositionsWithValue
-  ): LiquidationData | undefined {
-    logger.info(`Getting liquidation data for user ${userPosition.id}`, {
-      class: "PositionHandler",
-    });
-
-    const biggestBorrowPosition =
-      this.findBiggestPositionTypeFromAllUserPositions(userPosition, false);
-    const biggestCollateralPosition =
-      this.findBiggestPositionTypeFromAllUserPositions(userPosition, true);
-
-    if (!biggestBorrowPosition || !biggestCollateralPosition) {
-      logger.debug(`No valid liquidation data for user ${userPosition.id}`, {
-        class: "PositionHandler",
-        hasBorrowPosition: !!biggestBorrowPosition,
-        hasCollateralPosition: !!biggestCollateralPosition,
-      });
-      return undefined;
-    }
-
-    logger.debug(`Generated liquidation data for user ${userPosition.id}`, {
-      class: "PositionHandler",
-      borrowMarketId: biggestBorrowPosition.marketId,
-      collateralMarketId: biggestCollateralPosition.marketId,
-    });
-
-    return {
-      borrower: userPosition.id,
-      biggestBorrowPosition,
-      biggestCollateralPosition,
-    };
+    return allPositionsToMonitor;
   }
 }

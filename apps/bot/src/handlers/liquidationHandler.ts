@@ -2,9 +2,6 @@ import { Address, parseUnits } from "viem";
 import { ContractReader } from "../services/contractReader";
 import { PikeClient } from "../services/clients";
 import {
-  riskEngine,
-  riskEngineAbi,
-  pTokenAbi,
   WETH,
   USDC,
   WETH_USDC_POOL,
@@ -15,6 +12,11 @@ import {
 import { getUnderlying } from "#/utils/consts";
 import { logger } from "../services/logger";
 import { getRiskEngineParameters } from "#/services/ponder/riskEngineParameters";
+import {
+  AllUserPositionsWithValue,
+  defaultUserPositionData,
+  LiquidationData,
+} from "#/types";
 
 export class LiquidationHandler {
   public liquidationIncentiveMantissa: bigint = 0n;
@@ -49,102 +51,48 @@ export class LiquidationHandler {
     });
   }
 
-  async checkLiquidationAllowed({
-    borrowPToken,
-    borrower,
-    collateralPToken,
-    amountToLiquidate,
-    blockNumber,
-  }: {
-    borrower: Address;
-    borrowPToken: Address;
-    collateralPToken: Address;
-    amountToLiquidate: bigint;
-    blockNumber?: bigint;
-  }) {
+  checkLiquidationAllowed(userPositions: AllUserPositionsWithValue) {
     logger.debug("Checking liquidation allowance", {
       class: "LiquidationHandler",
-      borrower,
-      borrowPToken,
-      collateralPToken,
-      amountToLiquidate: amountToLiquidate.toString(),
-      blockNumber: blockNumber?.toString(),
+      user: userPositions.id,
     });
 
-    const liquidationErrorCode = (await this.contractReader.readContract({
-      address: riskEngine,
-      abi: riskEngineAbi,
-      functionName: "liquidateBorrowAllowed",
-      args: [borrowPToken, collateralPToken, borrower, amountToLiquidate],
-      blockNumber,
-    })) as bigint;
-
-    const isAllowed = liquidationErrorCode == BigInt(0);
-    logger.info(`Liquidation check result: ${isAllowed}`, {
-      class: "LiquidationHandler",
-      borrower,
-      errorCode: liquidationErrorCode.toString(),
-    });
-
-    return isAllowed;
+    return (
+      userPositions.totalCollateralUsdValue >
+      userPositions.totalBorrowedUsdValue
+    );
   }
 
-  async checkAmountToLiquidate({
-    borrowPToken,
-    borrower,
-    collateralPToken,
-    blockNumber,
-    borrowAmount,
-  }: {
-    borrower: Address;
-    borrowPToken: Address;
-    collateralPToken: Address;
-    borrowAmount: bigint;
-    blockNumber?: bigint;
-  }) {
+  checkAmountToLiquidate(userPositions: AllUserPositionsWithValue) {
     logger.debug("Checking amount to liquidate", {
       class: "LiquidationHandler",
-      borrower,
-      borrowPToken,
-      collateralPToken,
-      blockNumber: blockNumber?.toString(),
+      userPositions,
     });
 
-    const amount = (await this.contractReader.readContract({
-      address: borrowPToken,
-      abi: pTokenAbi,
-      functionName: "borrowBalanceCurrent",
-      args: [borrower],
-      blockNumber,
-    })) as bigint;
+    const liquidationData =
+      this.getLiquidationDataFromAllUserPositions(userPositions);
+
+    if (!liquidationData) {
+      logger.info("No liquidation data found", {
+        class: "LiquidationHandler",
+        user: userPositions.id,
+      });
+      return 0n;
+    }
 
     const amountToLiquidate =
-      (amount * this.closeFactorMantissa) / parseUnits("1", 18);
+      (liquidationData?.biggestBorrowPosition.borrowed *
+        this.closeFactorMantissa) /
+      parseUnits("1", 18);
 
     logger.debug("Calculated liquidation amount", {
       class: "LiquidationHandler",
-      borrower,
-      totalAmount: borrowAmount.toString(),
+      borrower: liquidationData.borrower,
+      totalAmount: liquidationData?.biggestBorrowPosition.borrowed.toString(),
       amountToLiquidate: amountToLiquidate.toString(),
     });
 
-    const liquidationAllowed = await this.checkLiquidationAllowed({
-      borrowPToken,
-      borrower,
-      collateralPToken,
-      amountToLiquidate,
-      blockNumber,
-    });
-
-    const finalAmount = liquidationAllowed ? amountToLiquidate : 0n;
-    logger.info("Amount to liquidate determined", {
-      class: "LiquidationHandler",
-      borrower,
-      finalAmount: finalAmount.toString(),
-      liquidationAllowed,
-    });
-
-    return finalAmount;
+    return amountToLiquidate;
   }
 
   getPoolAddress({
@@ -206,17 +154,39 @@ export class LiquidationHandler {
     return pool;
   }
 
+  calculateMinAmountOut({
+    collateralTokenPrice,
+    borrowTokenPrice,
+    repayAmount,
+  }: {
+    collateralTokenPrice: bigint;
+    borrowTokenPrice: bigint;
+    repayAmount: bigint;
+  }): bigint {
+    const amountToLiquidateInCollateralToken =
+      (repayAmount * borrowTokenPrice) / collateralTokenPrice;
+
+    const expectedAmountOut =
+      (amountToLiquidateInCollateralToken -
+        (this.liquidationIncentiveMantissa - parseUnits("1", 18))) /
+      parseUnits("1", 18);
+
+    // 90% of expected amount out to cover the pool fee cost
+    // if use a real pool to perform the liquidation this would be more complex and involve slippage, mev, etc
+    return (expectedAmountOut * 90n) / 100n;
+  }
+
   async liquidatePosition({
     borrowPToken,
     borrower,
-    amountToLiquidate,
+    repayAmount,
     collateralPToken,
     borrowTokenPrice,
     collateralTokenPrice,
   }: {
     borrower: Address;
     borrowPToken: Address;
-    amountToLiquidate: bigint;
+    repayAmount: bigint;
     collateralPToken: Address;
     borrowTokenPrice: bigint;
     collateralTokenPrice: bigint;
@@ -226,24 +196,17 @@ export class LiquidationHandler {
       borrower,
       borrowPToken,
       collateralPToken,
-      amountToLiquidate: amountToLiquidate.toString(),
+      repayAmount: repayAmount.toString(),
     });
 
-    const amountToLiquidateInCollateralToken =
-      (amountToLiquidate * borrowTokenPrice) / collateralTokenPrice;
-
-    const expectedAmountOut =
-      (amountToLiquidateInCollateralToken -
-        (this.liquidationIncentiveMantissa - parseUnits("1", 18))) /
-      parseUnits("1", 18);
-
-    // 90% of expected amount out to cover the pool fee cost
-    // if use a real pool to perform the liquidation this would be more complex and involve slippage, mev, etc
-    const minAmountOut = (expectedAmountOut * 90n) / 100n;
+    const minAmountOut = this.calculateMinAmountOut({
+      collateralTokenPrice,
+      borrowTokenPrice,
+      repayAmount,
+    });
 
     logger.debug("Calculated liquidation amounts", {
       class: "LiquidationHandler",
-      expectedAmountOut: expectedAmountOut.toString(),
       minAmountOut: minAmountOut.toString(),
       borrowTokenPrice: borrowTokenPrice.toString(),
       collateralTokenPrice: collateralTokenPrice.toString(),
@@ -258,7 +221,6 @@ export class LiquidationHandler {
       class: "LiquidationHandler",
       borrower,
       pool,
-      amountToLiquidate: amountToLiquidate.toString(),
       minAmountOut: minAmountOut.toString(),
     });
 
@@ -266,9 +228,84 @@ export class LiquidationHandler {
       pool,
       borrower,
       borrowPToken,
-      amountToLiquidate,
+      repayAmount,
       collateralPToken,
       minAmountOut,
     });
+  }
+
+  findBiggestPositionTypeFromAllUserPositions(
+    userPositions: AllUserPositionsWithValue,
+    isCollateral: boolean
+  ) {
+    const positionType = isCollateral ? "collateral" : "borrow";
+    logger.info(
+      `Finding biggest ${positionType} position for user ${userPositions.id}`,
+      {
+        class: "PositionHandler",
+      }
+    );
+
+    const biggestPosition = userPositions.positions.reduce(
+      (biggest, position) => {
+        if (!position.isOnMarket) return biggest;
+        const biggestAmount = isCollateral
+          ? biggest.balanceUsdValue
+          : biggest.borrowedUsdValue;
+        const positionAmount = isCollateral
+          ? position.balanceUsdValue
+          : position.borrowedUsdValue;
+
+        return positionAmount > biggestAmount ? position : biggest;
+      },
+      defaultUserPositionData
+    );
+
+    if (biggestPosition.isOnMarket) {
+      logger.info(`Found biggest ${positionType} position`, {
+        class: "PositionHandler",
+        user: userPositions.id,
+        marketId: biggestPosition.marketId,
+        amount: isCollateral
+          ? biggestPosition.balanceUsdValue
+          : biggestPosition.borrowedUsdValue,
+      });
+    }
+
+    return biggestPosition.isOnMarket ? biggestPosition : undefined;
+  }
+
+  getLiquidationDataFromAllUserPositions(
+    userPosition: AllUserPositionsWithValue
+  ): LiquidationData | undefined {
+    logger.info(`Getting liquidation data for user ${userPosition.id}`, {
+      class: "PositionHandler",
+    });
+
+    const biggestBorrowPosition =
+      this.findBiggestPositionTypeFromAllUserPositions(userPosition, false);
+    const biggestCollateralPosition =
+      this.findBiggestPositionTypeFromAllUserPositions(userPosition, true);
+
+    if (!biggestBorrowPosition || !biggestCollateralPosition) {
+      logger.debug(`No valid liquidation data for user ${userPosition.id}`, {
+        class: "PositionHandler",
+        hasBorrowPosition: !!biggestBorrowPosition,
+        hasCollateralPosition: !!biggestCollateralPosition,
+      });
+      return undefined;
+    }
+
+    logger.debug(`Generated liquidation data for user ${userPosition.id}`, {
+      class: "PositionHandler",
+      borrowMarketId: biggestBorrowPosition.marketId,
+      collateralMarketId: biggestCollateralPosition.marketId,
+    });
+
+    return {
+      borrower: userPosition.id,
+      biggestBorrowPosition,
+      biggestCollateralPosition,
+    };
   }
 }
