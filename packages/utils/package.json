@@ -9,5 +9,8 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     }
+  },
+  "dependencies": {
+    "viem": "^2.21.54"
   }
 }

@@ -8,8 +8,8 @@ import {
   stETH,
   WETH_stETH_POOL,
   USDC_stETH_POOL,
+  getUnderlying,
 } from "@pike-liq-bot/utils";
-import { getUnderlying } from "#/utils/consts";
 import { logger } from "../services/logger";
 import { getRiskEngineParameters } from "#/services/ponder/riskEngineParameters";
 import {

@@ -1,13 +1,9 @@
-import {
-  AllUserPositions,
-  AllUserPositionsWithValue,
-  LiquidationData,
-} from "../types";
+import { AllUserPositions, AllUserPositionsWithValue } from "../types";
 import { PriceHandler } from "./priceHandler";
-import { getDecimals, getUnderlying } from "#/utils/consts";
 import { Address, formatUnits } from "viem";
 import { getUserPositionsUpdatesAfterBlock } from "#/services/ponder/positions";
 import { logger } from "../services/logger";
+import { getDecimals, getUnderlying } from "@pike-liq-bot/utils";
 
 export class PositionHandler {
   public allPositions: Record<Address, AllUserPositions> = {};

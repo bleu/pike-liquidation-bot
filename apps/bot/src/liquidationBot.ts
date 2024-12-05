@@ -5,8 +5,8 @@ import { PositionHandler } from "./handlers/positionHandler";
 import { LiquidationHandler } from "./handlers/liquidationHandler";
 import { ContractReader } from "./services/contractReader";
 import { PikeClient, publicClient } from "./services/clients";
-import { getUnderlying } from "./utils/consts";
 import { logger } from "./services/logger";
+import { getUnderlying } from "@pike-liq-bot/utils";
 
 export class LiquidationBot {
   private onMonitoringData: Record<

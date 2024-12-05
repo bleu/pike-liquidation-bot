@@ -4,7 +4,6 @@ import { baseSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { type Address, type WalletClient } from "viem";
 import { MaxUint256 } from "ethers";
-import { getDecimals, getUnderlying } from "../utils/consts";
 import { encodeFunctionData } from "viem";
 import {
   mockOracleAbi,
@@ -15,6 +14,8 @@ import {
   riskEngine,
   liquidationHelperAbi,
   liquidationHelper,
+  getDecimals,
+  getUnderlying,
 } from "@pike-liq-bot/utils";
 
 export const chain = baseSepolia;
