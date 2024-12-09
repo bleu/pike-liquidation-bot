@@ -2,33 +2,47 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 import { LiquidationHandler } from "#/handlers/liquidationHandler";
 import { ContractReader } from "#/services/contractReader";
 import { publicClient } from "#/services/clients";
-import { riskEngine, pWETH, pUSDC } from "@pike-liq-bot/utils";
+import { pstETH, pUSDC, pWETH } from "@pike-liq-bot/utils";
 import { PikeClient } from "#/services/clients";
-import { createWalletClient, http } from "viem";
+import { createWalletClient, http, parseUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
+import {
+  mockUserAPosition,
+  mockUserBPosition,
+  mockUserCPosition,
+  mockUserDPosition,
+  mockUserEPosition,
+  userA,
+  userB,
+  userC,
+  userD,
+  userE,
+} from "../mocks/utils";
+import { AllUserPositionsWithValue } from "#/types";
+import { PositionHandler } from "#/handlers/positionHandler";
+import { PriceHandler } from "#/handlers/priceHandler";
 
 vi.mock("#/services/clients", async () => {
   const actual = await vi.importActual("#/services/clients");
   return {
     ...actual,
     publicClient: {
-      readContract: vi.fn(),
-      getBlock: vi.fn().mockResolvedValue({ baseFeePerGas: 1000000000n }),
-      estimateGas: vi.fn().mockResolvedValue(100000n),
-      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
+      multicall: vi.fn().mockResolvedValue([
+        { result: 1000000n, status: "success" }, // USDC price ($1)
+        { result: 2000000000n, status: "success" }, // WETH price ($2000)
+        { result: 1900000000n, status: "success" }, // stETH price ($1900)
+      ]),
     },
-    PikeClient: vi.fn().mockImplementation(() => ({
-      sendAndWaitForReceipt: vi.fn().mockResolvedValue({ status: "success" }),
-    })),
   };
 });
-
 describe("LiquidationHandler", () => {
   let liquidationHandler: LiquidationHandler;
+  let positionHandler: PositionHandler;
+  let priceHandler: PriceHandler;
   let mockPikeClient: PikeClient;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
 
     // Create mock wallet client with proper 32-byte private key
@@ -47,53 +61,167 @@ describe("LiquidationHandler", () => {
     liquidationHandler = new LiquidationHandler(contractReader, mockPikeClient);
     liquidationHandler.closeFactorMantissa = 500000000000000000n;
     liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
+
+    priceHandler = new PriceHandler(contractReader);
+    positionHandler = new PositionHandler(priceHandler);
+
+    // Initialize price handler
+    await priceHandler.updatePrices();
+    positionHandler.allPositions = {
+      [userA]: mockUserAPosition,
+      [userB]: mockUserBPosition,
+      [userC]: mockUserCPosition,
+      [userD]: mockUserDPosition,
+      [userE]: mockUserEPosition,
+    };
   });
 
-  test("should check if liquidation is allowed", async () => {
-    vi.mocked(publicClient.readContract).mockResolvedValue(0n); // 0 means allowed
-
-    const allowed = await liquidationHandler.checkLiquidationAllowed({
-      borrowPToken: pWETH,
-      borrower: "0x123" as const,
-      collateralPToken: pUSDC,
-      amountToLiquidate: 100n,
+  test("should check if liquidation is allowed", () => {
+    const allowed = liquidationHandler.checkLiquidationAllowed({
+      id: pWETH,
+      totalBorrowedUsdValue: 100,
+      totalCollateralUsdValue: 101,
+      positions: [],
+      lastUpdated: 0n,
     });
 
     expect(allowed).toBe(true);
-    expect(publicClient.readContract).toHaveBeenCalledWith(
-      expect.objectContaining({
-        address: riskEngine,
-        functionName: "liquidateBorrowAllowed",
-        args: [pWETH, pUSDC, "0x123", 100n],
-      })
-    );
   });
 
-  test("should check amount to liquidate", async () => {
-    // Mock borrow balance
-    vi.mocked(publicClient.readContract).mockResolvedValueOnce(0n); // liquidateBorrowAllowed
-
-    const amount = await liquidationHandler.checkAmountToLiquidate({
-      borrowPToken: pWETH,
-      borrower: "0x123" as const,
-      collateralPToken: pUSDC,
-      borrowAmount: 1000n,
+  test("should check amount to liquidate", () => {
+    const amount = liquidationHandler.checkAmountToLiquidate({
+      id: "0x123",
+      totalBorrowedUsdValue: 100,
+      totalCollateralUsdValue: 101,
+      positions: [
+        {
+          marketId: pWETH,
+          balance: 1000n,
+          borrowed: 2000n,
+          borrowedUsdValue: 100,
+          balanceUsdValue: 101,
+          isOnMarket: true,
+        },
+      ],
+      lastUpdated: 0n,
     });
 
-    expect(amount).toBe(500n); // Half of borrow balance
-    expect(publicClient.readContract).toHaveBeenCalledTimes(1);
+    expect(amount).toBe(1000n); // Half of borrow balance
+  });
+  test("should handle positions with no liquidation opportunity", () => {
+    const userPositions = {
+      id: userA,
+      lastUpdated: 10n,
+      totalCollateralUsdValue: 10,
+      totalBorrowedUsdValue: 0,
+      positions: [
+        {
+          marketId: pWETH,
+          balance: 1n,
+          balanceUsdValue: 10,
+          borrowedUsdValue: 0,
+          borrowed: 0n,
+          isOnMarket: false,
+        },
+      ],
+    };
+
+    const liquidationData =
+      liquidationHandler.getLiquidationDataFromAllUserPositions(userPositions);
+
+    expect(liquidationData).toBeUndefined();
   });
 
-  test("should return 0 if liquidation not allowed", async () => {
-    vi.mocked(publicClient.readContract).mockResolvedValueOnce(1n); // liquidateBorrowAllowed (not 0, means not allowed)
+  test("should consider token prices when finding biggest positions", () => {
+    const liquidationData =
+      liquidationHandler.getLiquidationDataFromAllUserPositions(
+        positionHandler
+          .getAllPositionsWithUsdValue()
+          .find(
+            ({ id }) => id === mockUserBPosition.id
+          ) as AllUserPositionsWithValue
+      );
 
-    const amount = await liquidationHandler.checkAmountToLiquidate({
-      borrowPToken: pWETH,
-      borrower: "0x123" as const,
-      collateralPToken: pUSDC,
-      borrowAmount: 1000n,
+    expect(liquidationData).toEqual({
+      borrower: mockUserBPosition.id,
+      biggestBorrowPosition: expect.objectContaining({
+        marketId: pWETH, // WETH borrow has higher value than stETH
+      }),
+      biggestCollateralPosition: expect.objectContaining({
+        marketId: pUSDC, // Only collateral
+      }),
     });
+  });
 
-    expect(amount).toBe(0n);
+  test("should find biggest collateral position for user A (WETH)", () => {
+    const biggestPosition =
+      liquidationHandler.findBiggestPositionTypeFromAllUserPositions(
+        positionHandler
+          .getAllPositionsWithUsdValue()
+          .find(
+            ({ id }) => id === mockUserAPosition.id
+          ) as AllUserPositionsWithValue,
+        true // isCollateral
+      );
+
+    expect(biggestPosition?.marketId).toBe(pWETH);
+    expect(biggestPosition?.balance).toBe(1000000000000000000n); // 1 WETH
+  });
+
+  test("should find biggest collateral position for user C (multiple collaterals)", () => {
+    const biggestPosition =
+      liquidationHandler.findBiggestPositionTypeFromAllUserPositions(
+        positionHandler
+          .getAllPositionsWithUsdValue()
+          .find(
+            ({ id }) => id === mockUserCPosition.id
+          ) as AllUserPositionsWithValue,
+        true // isCollateral
+      );
+
+    // USDC should be bigger in value than WETH
+    // 1500 USDC -> 1500 USD
+    // 0.5 psETH -> 1000 USD
+    expect(biggestPosition?.marketId).toBe(pUSDC);
+    expect(biggestPosition?.balance).toBe(parseUnits("1500", 6)); // 1500 USDC
+  });
+
+  test("should find biggest borrow position for user B (multiple borrows)", () => {
+    const biggestPosition =
+      liquidationHandler.findBiggestPositionTypeFromAllUserPositions(
+        positionHandler
+          .getAllPositionsWithUsdValue()
+          .find(
+            ({ id }) => id === mockUserBPosition.id
+          ) as AllUserPositionsWithValue,
+        false // isCollateral
+      );
+
+    // WETH borrow should be bigger in value than stETH
+    expect(biggestPosition?.marketId).toBe(pWETH);
+    expect(biggestPosition?.borrowed).toBe(300000000000000000n); // 0.3 WETH
+  });
+
+  test("should get liquidation data for user A", () => {
+    const liquidationData =
+      liquidationHandler.getLiquidationDataFromAllUserPositions(
+        positionHandler
+          .getAllPositionsWithUsdValue()
+          .find(
+            ({ id }) => id === mockUserAPosition.id
+          ) as AllUserPositionsWithValue
+      );
+
+    expect(liquidationData).toEqual({
+      borrower: mockUserAPosition.id,
+      biggestBorrowPosition: expect.objectContaining({
+        marketId: pstETH,
+        borrowed: 500000000000000000n, // 0.5 stETH
+      }),
+      biggestCollateralPosition: expect.objectContaining({
+        marketId: pWETH,
+        balance: 1000000000000000000n, // 1 WETH
+      }),
+    });
   });
 });

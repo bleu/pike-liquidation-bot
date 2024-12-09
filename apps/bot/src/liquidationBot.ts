@@ -1,5 +1,5 @@
 import { Address } from "viem";
-import { LiquidationData } from "./types";
+import { AllUserPositionsWithValue } from "./types";
 import { PriceHandler } from "./handlers/priceHandler";
 import { PositionHandler } from "./handlers/positionHandler";
 import { LiquidationHandler } from "./handlers/liquidationHandler";
@@ -11,7 +11,7 @@ import { logger } from "./services/logger";
 export class LiquidationBot {
   private onMonitoringData: Record<
     Address,
-    { data: LiquidationData; unwatchFn: () => void }
+    { data: AllUserPositionsWithValue; unwatchFn: () => void }
   > = {};
 
   private blockNumber?: bigint = undefined;
@@ -76,51 +76,65 @@ export class LiquidationBot {
     newDataToMonitor.forEach(this.startOrUpdateMonitorPosition);
   };
 
-  private startOrUpdateMonitorPosition = (data: LiquidationData) => {
-    this.stopMonitorPosition(data.borrower);
+  private startOrUpdateMonitorPosition = (data: AllUserPositionsWithValue) => {
+    this.stopMonitorPosition(data.id);
 
-    logger.debug(`Starting monitoring for borrower ${data.borrower}`, {
+    logger.debug(`Starting monitoring for borrower ${data.id}`, {
       class: "LiquidationBot",
     });
 
     const unwatchFn = publicClient.watchBlocks({
       onBlock: async (block) => {
-        logger.info(`Checking liquidation for borrower ${data.borrower}`, {
+        logger.info(`Checking liquidation for borrower ${data.id}`, {
           class: "LiquidationBot",
           blockNumber: block.number.toString(),
         });
 
-        const amountToLiquidate =
-          await this.liquidationHandler.checkAmountToLiquidate({
-            borrowPToken: data.biggestBorrowPosition.marketId,
-            borrower: data.borrower,
-            collateralPToken: data.biggestCollateralPosition.marketId,
-            borrowAmount: data.biggestBorrowPosition.borrowed,
-          });
+        const isAllowed = this.liquidationHandler.checkLiquidationAllowed(data);
 
-        if (amountToLiquidate > 0n) {
-          logger.info(`Liquidating position for borrower ${data.borrower}`, {
+        if (!isAllowed) return;
+
+        const repayAmount =
+          this.liquidationHandler.checkAmountToLiquidate(data);
+
+        if (repayAmount > 0n) {
+          logger.info(`Liquidating position for borrower ${data.id}`, {
             class: "LiquidationBot",
             blockNumber: block.number.toString(),
-            marketId: data.biggestBorrowPosition.marketId,
           });
+
+          const liquidationData =
+            this.liquidationHandler.getLiquidationDataFromAllUserPositions(
+              data
+            );
+
+          if (!liquidationData) {
+            logger.error("No liquidation data found", {
+              class: "LiquidationBot",
+              borrower: data.id,
+            });
+            return;
+          }
 
           const liquidationReceipt =
             await this.liquidationHandler.liquidatePosition({
-              borrower: data.borrower,
-              borrowPToken: data.biggestBorrowPosition.marketId,
-              amountToLiquidate,
-              collateralPToken: data.biggestCollateralPosition.marketId,
+              borrower: liquidationData.borrower,
+              borrowPToken: liquidationData.biggestBorrowPosition.marketId,
+              repayAmount,
+              collateralPToken:
+                liquidationData.biggestCollateralPosition.marketId,
               borrowTokenPrice: this.priceHandler.getPrice(
-                getUnderlying(data.biggestBorrowPosition.marketId)
+                getUnderlying(liquidationData.biggestBorrowPosition.marketId)
               ),
               collateralTokenPrice: this.priceHandler.getPrice(
-                getUnderlying(data.biggestCollateralPosition.marketId)
+                getUnderlying(
+                  liquidationData.biggestCollateralPosition.marketId
+                )
               ),
             });
 
           logger.info(
-            `Position liquidated for borrower ${data.borrower} on tx: ${liquidationReceipt.transactionHash}`
+            `Position liquidated for borrower ${liquidationData.borrower} on tx: ${liquidationReceipt.transactionHash}`
           );
           return true;
         }
@@ -128,7 +142,7 @@ export class LiquidationBot {
       },
     });
 
-    this.onMonitoringData[data.borrower] = { data, unwatchFn };
+    this.onMonitoringData[data.id] = { data, unwatchFn };
   };
 
   private stopMonitorPosition = (borrower: Address) => {

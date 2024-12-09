@@ -1,5 +1,5 @@
 // test/handlers/liquidationHandler.test.ts
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi, beforeEach } from "vitest";
 import { LiquidationHandler } from "#/handlers/liquidationHandler";
 import { ContractReader } from "#/services/contractReader";
 import {
@@ -8,162 +8,107 @@ import {
   publicClient,
 } from "#/services/clients";
 import { getEnv } from "#/utils/env";
-import {
-  initialPricesBlock,
-  positionUserA,
-  userA,
-  userE,
-  wethLowPriceBlock,
-} from "../mocks/utils";
-import {
-  liquidationHelper,
-  liquidationHelperAbi,
-  pTokenAbi,
-} from "@pike-liq-bot/utils";
-import { parseUnits } from "viem";
+import { mockUserAPosition, userA, wethLowPriceBlock } from "../mocks/utils";
+import { liquidationHelper, liquidationHelperAbi } from "@pike-liq-bot/utils";
+import { PriceHandler } from "#/handlers/priceHandler";
+import { PositionHandler } from "#/handlers/positionHandler";
+import { AllUserPositionsWithValue, LiquidationData } from "#/types";
 
-describe("LiquidationHandler with real client", () => {
-  // Create instances that will be used across all tests
-  const walletClient = createWalletClientFromPrivateKey(
-    getEnv("BOT_PRIVATE_KEY") as `0x${string}`
-  );
-  const pikeClient = new PikeClient(walletClient);
-  const contractReader = new ContractReader(publicClient);
-  const liquidationHandler = new LiquidationHandler(contractReader, pikeClient);
-  liquidationHandler.closeFactorMantissa = 500000000000000000n;
-  liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
+vi.mock("#/services/clients", async () => {
+  const actual = await vi.importActual("#/services/clients");
+  return {
+    ...actual,
+    publicClient: {
+      // @ts-ignore
+      ...actual.publicClient,
+      multicall: vi.fn().mockResolvedValue([
+        { result: 1000000n, status: "success" }, // USDC price ($1)
+        { result: 1000000000n, status: "success" }, // WETH price ($2000)
+        { result: 1900000000n, status: "success" }, // stETH price ($1900)
+      ]),
+    },
+  };
+});
 
-  describe("checkAmountToLiquidate", () => {
-    const params = {
-      borrowPToken: positionUserA.borrowPTokens[0],
-      borrower: userA,
-      collateralPToken: positionUserA.collateralPTokens[0],
-      borrowAmount: 500000000000000000n,
+describe("checkAmountToLiquidate", () => {
+  let positionHandler: PositionHandler;
+  let liquidationHandler: LiquidationHandler;
+  let priceHandler: PriceHandler;
+  let walletClient: ReturnType<typeof createWalletClientFromPrivateKey>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    const contractReader = new ContractReader(publicClient);
+
+    priceHandler = new PriceHandler(contractReader);
+
+    positionHandler = new PositionHandler(priceHandler);
+
+    // Initialize price handler
+    await priceHandler.updatePrices();
+    positionHandler.allPositions = {
+      [userA]: mockUserAPosition,
     };
+    walletClient = createWalletClientFromPrivateKey(
+      getEnv("BOT_PRIVATE_KEY") as `0x${string}`
+    );
+    const pikeClient = new PikeClient(walletClient);
+    liquidationHandler = new LiquidationHandler(contractReader, pikeClient);
+    liquidationHandler.closeFactorMantissa = 500000000000000000n;
+    liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
+  });
+  test("should liquidate position", async () => {
+    const userPositions = positionHandler
+      .getAllPositionsWithUsdValue()
+      .find(
+        ({ id }) => id === mockUserAPosition.id
+      ) as AllUserPositionsWithValue;
 
-    describe("at initial prices block", () => {
-      test("should return 0n amount when liquidation not allowed", async () => {
-        const amountToLiquidate =
-          await liquidationHandler.checkAmountToLiquidate({
-            ...params,
-            blockNumber: initialPricesBlock,
-            borrowAmount: 1000n,
-          });
+    expect(userPositions).toBeDefined();
 
-        expect(amountToLiquidate).toBe(0n);
-      });
+    const checkLiquidationAllowed =
+      liquidationHandler.checkLiquidationAllowed(userPositions);
 
-      test("should match half of borrow balance", async () => {
-        const borrowBalance = await contractReader.readContract({
-          address: params.borrowPToken,
-          abi: pTokenAbi,
-          functionName: "borrowBalanceCurrent",
-          args: [params.borrower],
-          blockNumber: initialPricesBlock,
-        });
+    expect(checkLiquidationAllowed).toBe(true);
 
-        const amountToLiquidate =
-          await liquidationHandler.checkAmountToLiquidate({
-            ...params,
-            blockNumber: initialPricesBlock,
-          });
+    const amountToLiquidate =
+      liquidationHandler.checkAmountToLiquidate(userPositions);
 
-        // Since liquidation is not allowed at initial prices, amount should be 0
-        expect(amountToLiquidate).toBe(0n);
-        expect(borrowBalance).toBeGreaterThan(0n);
-      });
+    const expectedAmountOut = liquidationHandler.calculateMinAmountOut({
+      borrowTokenPrice: 1900000000n,
+      repayAmount: amountToLiquidate,
+      collateralTokenPrice: 1000000000n,
     });
 
-    describe("at WETH low price block", () => {
-      test("should return positive amount when liquidation allowed", async () => {
-        const amountToLiquidate =
-          await liquidationHandler.checkAmountToLiquidate({
-            ...params,
-            blockNumber: wethLowPriceBlock,
-          });
+    const minAmountOut = (expectedAmountOut * 1n) / 100n;
 
-        expect(amountToLiquidate).toBeGreaterThan(0n);
-      });
+    const liquidationData =
+      liquidationHandler.getLiquidationDataFromAllUserPositions(
+        userPositions
+      ) as LiquidationData;
 
-      // test("should be exactly half of borrow balance", async () => {
-      //   const amountToLiquidate =
-      //     (await liquidationHandler.checkAmountToLiquidate({
-      //       ...params,
-      //       blockNumber: wethLowPriceBlock,
-
-      //     })) as bigint;
-
-      //   expect(amountToLiquidate).toBe(borrowBalance / 2n);
-      // });
+    const pool = liquidationHandler.getPoolAddress({
+      borrowPToken: liquidationData.biggestBorrowPosition.marketId,
+      collateralPToken: liquidationData.biggestCollateralPosition.marketId,
     });
 
-    describe("edge cases", () => {
-      test("should return 0n for non-existent user position", async () => {
-        const amountToLiquidate =
-          await liquidationHandler.checkAmountToLiquidate({
-            ...params,
-            borrower: userE, // User with no position
-            blockNumber: wethLowPriceBlock,
-            borrowAmount: 600000000000000000n,
-          });
-
-        expect(amountToLiquidate).toBe(0n);
-      });
-
-      describe("liquidatePosition", () => {
-        test("should liquidate position", async () => {
-          const amountToLiquidate =
-            await liquidationHandler.checkAmountToLiquidate({
-              ...params,
-              blockNumber: wethLowPriceBlock,
-            });
-
-          const borrowTokenPrice = parseUnits("2000", 6);
-          const collateralTokenPrice = parseUnits("1000", 6);
-
-          const expectedAmountOut =
-            (amountToLiquidate * borrowTokenPrice) / collateralTokenPrice;
-          const minAmountOut = (expectedAmountOut * 1n) / 100n;
-          const pool = liquidationHandler.getPoolAddress({
-            borrowPToken: params.borrowPToken,
-            collateralPToken: params.collateralPToken,
-          });
-
-          await publicClient.simulateContract({
-            address: liquidationHelper,
-            abi: liquidationHelperAbi,
-            functionName: "liquidate",
-            args: [
-              pool,
-              params.borrowPToken,
-              params.collateralPToken,
-              params.borrower,
-              amountToLiquidate,
-              minAmountOut,
-            ],
-            account: walletClient.account.address,
-            blockNumber: wethLowPriceBlock,
-          });
-
-          expect(true).to.be.true; // Pass the test since the last function didn't reverted
-        });
-      });
-
-      test("should handle same user at different blocks", async () => {
-        const [amountInitial, amountLowWeth] = await Promise.all([
-          liquidationHandler.checkAmountToLiquidate({
-            ...params,
-            blockNumber: initialPricesBlock,
-          }),
-          liquidationHandler.checkAmountToLiquidate({
-            ...params,
-            blockNumber: wethLowPriceBlock,
-          }),
-        ]);
-
-        expect(amountInitial).toBe(0n);
-        expect(amountLowWeth).toBeGreaterThan(0n);
-      });
+    await publicClient.simulateContract({
+      address: liquidationHelper,
+      abi: liquidationHelperAbi,
+      functionName: "liquidate",
+      args: [
+        pool,
+        liquidationData.biggestBorrowPosition.marketId,
+        liquidationData.biggestCollateralPosition.marketId,
+        liquidationData.borrower,
+        amountToLiquidate,
+        minAmountOut,
+      ],
+      account: walletClient.account.address,
+      blockNumber: wethLowPriceBlock,
     });
+
+    expect(true).to.be.true; // Pass the test since the last function didn't reverted
   });
 });
