@@ -1,4 +1,4 @@
-import { gql, GraphQLClient } from "graphql-request";
+import { gql } from "graphql-request";
 
 import { type Address } from "viem";
 import { AllUserPositions } from "../../types";

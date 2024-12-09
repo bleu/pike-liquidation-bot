@@ -1,8 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { LiquidationHandler } from "#/handlers/liquidationHandler";
-import { ContractReader } from "#/services/contractReader";
 import { publicClient } from "#/services/clients";
-import { pstETH, pUSDC, pWETH } from "@pike-liq-bot/utils";
+import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "@pike-liq-bot/utils";
 import { PikeClient } from "#/services/clients";
 import { createWalletClient, http, parseUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -23,19 +22,6 @@ import { AllUserPositionsWithValue } from "#/types";
 import { PositionHandler } from "#/handlers/positionHandler";
 import { PriceHandler } from "#/handlers/priceHandler";
 
-vi.mock("#/services/clients", async () => {
-  const actual = await vi.importActual("#/services/clients");
-  return {
-    ...actual,
-    publicClient: {
-      multicall: vi.fn().mockResolvedValue([
-        { result: 1000000n, status: "success" }, // USDC price ($1)
-        { result: 2000000000n, status: "success" }, // WETH price ($2000)
-        { result: 1900000000n, status: "success" }, // stETH price ($1900)
-      ]),
-    },
-  };
-});
 describe("LiquidationHandler", () => {
   let liquidationHandler: LiquidationHandler;
   let positionHandler: PositionHandler;
@@ -57,16 +43,25 @@ describe("LiquidationHandler", () => {
     // Initialize mocked PikeClient
     mockPikeClient = new PikeClient(mockWalletClient);
 
-    const contractReader = new ContractReader(publicClient);
-    liquidationHandler = new LiquidationHandler(contractReader, mockPikeClient);
+    liquidationHandler = new LiquidationHandler(mockPikeClient);
     liquidationHandler.closeFactorMantissa = 500000000000000000n;
     liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
 
-    priceHandler = new PriceHandler(contractReader);
+    priceHandler = new PriceHandler();
+    const mockPrices: Record<string, bigint> = {
+      [USDC]: parseUnits("1", 6),
+      [WETH]: parseUnits("2000", 6),
+      [stETH]: parseUnits("1900", 6),
+    };
+
+    // Mock the getPrice method
+    const getPriceMock = vi.spyOn(priceHandler, "getPrice");
+    getPriceMock.mockImplementation((token) => {
+      return mockPrices[token] || BigInt(0);
+    });
     positionHandler = new PositionHandler(priceHandler);
 
     // Initialize price handler
-    await priceHandler.updatePrices();
     positionHandler.allPositions = {
       [userA]: mockUserAPosition,
       [userB]: mockUserBPosition,

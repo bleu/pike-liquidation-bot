@@ -3,8 +3,7 @@ import {
   createWalletClientFromPrivateKey,
   PikeClient,
 } from "#/services/clients";
-import { stETH, USDC, WETH } from "@pike-liq-bot/utils";
-import { getSymbol } from "#/utils/consts";
+import { getSymbol, stETH, USDC, WETH } from "@pike-liq-bot/utils";
 import { getEnv } from "#/utils/env";
 
 export type WalletInfo = {

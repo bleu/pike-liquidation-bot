@@ -1,0 +1,35 @@
+import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "./contracts";
+import { Address } from "viem";
+
+export const getUnderlying = (pToken: Address) => {
+  if (pToken === pWETH) return WETH;
+  if (pToken === pUSDC) return USDC;
+  if (pToken === pstETH) return stETH;
+  throw new Error(`Unknown pToken: ${pToken}`);
+};
+
+export const getDecimals = (token: Address) => {
+  // @ts-ignore
+  if ([WETH, stETH, pUSDC, pWETH, pstETH].includes(token)) return 18n;
+  if (token === USDC) return 6n;
+  throw new Error(`Unknown token: ${token}`);
+};
+
+export const getSymbol = (token: Address) => {
+  switch (token) {
+    case WETH:
+      return "WETH";
+    case USDC:
+      return "USDC";
+    case stETH:
+      return "stETH";
+    case pWETH:
+      return "pWETH";
+    case pUSDC:
+      return "pUSDC";
+    case pstETH:
+      return "pstETH";
+    default:
+      throw new Error(`Unknown token: ${token}`);
+  }
+};

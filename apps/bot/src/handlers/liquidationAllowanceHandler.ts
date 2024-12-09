@@ -1,4 +1,4 @@
-import { Address, formatUnits, parseUnits } from "viem";
+import { Address, parseUnits } from "viem";
 import { PikeClient } from "../services/clients";
 import {
   WETH,
@@ -17,14 +17,11 @@ import {
   LiquidationData,
 } from "#/types";
 
-export class LiquidationHandler {
+export class LiquidationAllowanceHandler {
   public liquidationIncentiveMantissa: bigint = 0n;
   public closeFactorMantissa: bigint = 0n;
 
-  constructor(
-    private readonly pikeClient: PikeClient,
-    private readonly minProfitUsdValue: number = 0
-  ) {
+  constructor(private readonly pikeClient: PikeClient) {
     logger.debug("Initializing LiquidationHandler", {
       class: "LiquidationHandler",
     });
@@ -57,8 +54,8 @@ export class LiquidationHandler {
     });
 
     return (
-      userPositions.totalBorrowedUsdValue >
-      userPositions.totalCollateralUsdValue
+      userPositions.totalCollateralUsdValue >
+      userPositions.totalBorrowedUsdValue
     );
   }
 
@@ -175,96 +172,6 @@ export class LiquidationHandler {
     return (expectedAmountOut * 90n) / 100n;
   }
 
-  calculateExpectedLiquidationProfit({
-    collateralTokenPrice,
-    borrowTokenPrice,
-    repayAmount,
-    expectedAmountOut,
-  }: {
-    collateralTokenPrice: bigint;
-    borrowTokenPrice: bigint;
-    repayAmount: bigint;
-    expectedAmountOut: bigint;
-  }) {
-    const collateralValue = Number(
-      formatUnits(expectedAmountOut * collateralTokenPrice, 36)
-    );
-    const borrowValue = Number(formatUnits(repayAmount * borrowTokenPrice, 36));
-
-    const profit = collateralValue - borrowValue;
-
-    logger.debug("Calculated liquidation profit", {
-      class: "LiquidationHandler",
-      profit: profit.toString(),
-    });
-
-    return profit;
-  }
-
-  async liquidatePositionRaw({
-    borrowPToken,
-    borrower,
-    repayAmount,
-    collateralPToken,
-  }: {
-    borrower: Address;
-    borrowPToken: Address;
-    repayAmount: bigint;
-    collateralPToken: Address;
-  }) {
-    logger.info("Initiating position liquidation using bot liquidity", {
-      class: "LiquidationHandler",
-      borrower,
-      borrowPToken,
-      collateralPToken,
-      repayAmount: repayAmount.toString(),
-    });
-
-    const tx = await this.pikeClient.liquidatePositionRaw({
-      borrower,
-      borrowPToken,
-      repayAmount,
-      collateralPToken,
-    });
-
-    return tx.transactionHash;
-  }
-
-  async liquidatePositionWithProfit({
-    minAmountOut,
-    borrowPToken,
-    collateralPToken,
-    borrower,
-    repayAmount,
-  }: {
-    borrower: Address;
-    borrowPToken: Address;
-    repayAmount: bigint;
-    collateralPToken: Address;
-    minAmountOut: bigint;
-  }) {
-    const pool = this.getPoolAddress({
-      borrowPToken,
-      collateralPToken,
-    });
-
-    logger.info("Executing liquidation", {
-      class: "LiquidationHandler",
-      borrower,
-      pool,
-      minAmountOut: minAmountOut.toString(),
-    });
-
-    return this.pikeClient.liquidatePosition({
-      pool,
-      borrower,
-      borrowPToken,
-      repayAmount,
-      collateralPToken,
-      minAmountOut,
-    });
-  }
-
   async liquidatePosition({
     borrowPToken,
     borrower,
@@ -294,43 +201,32 @@ export class LiquidationHandler {
       repayAmount,
     });
 
-    const expectedProfitUsdValue = this.calculateExpectedLiquidationProfit({
-      collateralTokenPrice,
-      borrowTokenPrice,
-      repayAmount,
-      expectedAmountOut: minAmountOut,
-    });
-
     logger.debug("Calculated liquidation amounts", {
       class: "LiquidationHandler",
       minAmountOut: minAmountOut.toString(),
+      borrowTokenPrice: borrowTokenPrice.toString(),
+      collateralTokenPrice: collateralTokenPrice.toString(),
     });
 
-    if (expectedProfitUsdValue < this.minProfitUsdValue) {
-      logger.info("Expected profit is below minimum", {
-        class: "LiquidationHandler",
-        borrower,
-        expectedProfitUsdValue: expectedProfitUsdValue.toString(),
-        minProfitUsdValue: this.minProfitUsdValue.toString(),
-      });
-      return;
-    }
-
-    if (expectedProfitUsdValue > 0) {
-      return this.liquidatePositionWithProfit({
-        minAmountOut,
-        borrowPToken,
-        collateralPToken,
-        borrower,
-        repayAmount,
-      });
-    }
-
-    return this.liquidatePositionRaw({
+    const pool = this.getPoolAddress({
       borrowPToken,
+      collateralPToken,
+    });
+
+    logger.info("Executing liquidation", {
+      class: "LiquidationHandler",
       borrower,
+      pool,
+      minAmountOut: minAmountOut.toString(),
+    });
+
+    return this.pikeClient.liquidatePosition({
+      pool,
+      borrower,
+      borrowPToken,
       repayAmount,
       collateralPToken,
+      minAmountOut,
     });
   }
 

@@ -1,13 +1,9 @@
-import {
-  AllUserPositions,
-  AllUserPositionsWithValue,
-  LiquidationData,
-} from "../types";
+import { AllUserPositions, AllUserPositionsWithValue } from "../types";
 import { PriceHandler } from "./priceHandler";
-import { getDecimals, getUnderlying } from "#/utils/consts";
 import { Address, formatUnits } from "viem";
 import { getUserPositionsUpdatesAfterBlock } from "#/services/ponder/positions";
 import { logger } from "../services/logger";
+import { getDecimals, getUnderlying } from "@pike-liq-bot/utils";
 
 export class PositionHandler {
   public allPositions: Record<Address, AllUserPositions> = {};
@@ -15,14 +11,9 @@ export class PositionHandler {
 
   constructor(
     private readonly priceHandler: PriceHandler,
-    public positionsToMonitorLimit: number = 2,
     public minCollateralUsdValue: number = 500
   ) {
-    logger.debug("Initializing PositionHandler", {
-      class: "PositionHandler",
-      positionsToMonitorLimit,
-      minCollateralUsdValue,
-    });
+    logger.debug("Initializing PositionHandler");
   }
 
   async updatePositions() {
@@ -83,7 +74,7 @@ export class PositionHandler {
             formatUnits(position.borrowed * tokenPrice, 6 + decimals)
           );
 
-          logger.info(
+          logger.debug(
             `Calculated USD values for position in market ${position.marketId}`,
             {
               class: "PositionHandler",
@@ -133,39 +124,9 @@ export class PositionHandler {
     });
 
     const allPositionsWithValue = this.getAllPositionsWithUsdValue();
-    const allPositionsFiltered = allPositionsWithValue.filter(
+    return allPositionsWithValue.filter(
       (position) =>
         position.totalCollateralUsdValue > this.minCollateralUsdValue
     );
-
-    logger.debug(`Filtered positions by minimum collateral value`, {
-      class: "PositionHandler",
-      totalPositions: allPositionsWithValue.length,
-      filteredPositions: allPositionsFiltered.length,
-      minCollateralUsdValue: this.minCollateralUsdValue,
-    });
-
-    const allPositionsToMonitor = allPositionsFiltered
-      .sort((a, b) => {
-        const diffA =
-          (a.totalCollateralUsdValue - a.totalBorrowedUsdValue) /
-          a.totalCollateralUsdValue;
-
-        const diffB =
-          (b.totalCollateralUsdValue - b.totalBorrowedUsdValue) /
-          b.totalCollateralUsdValue;
-
-        return diffA - diffB;
-      })
-      .slice(0, this.positionsToMonitorLimit);
-
-    logger.info(
-      `Selected ${allPositionsToMonitor.length} positions to monitor`,
-      {
-        class: "PositionHandler",
-      }
-    );
-
-    return allPositionsToMonitor;
   }
 }

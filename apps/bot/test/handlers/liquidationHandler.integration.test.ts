@@ -1,7 +1,6 @@
 // test/handlers/liquidationHandler.test.ts
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { LiquidationHandler } from "#/handlers/liquidationHandler";
-import { ContractReader } from "#/services/contractReader";
 import {
   createWalletClientFromPrivateKey,
   PikeClient,
@@ -9,26 +8,17 @@ import {
 } from "#/services/clients";
 import { getEnv } from "#/utils/env";
 import { mockUserAPosition, userA, wethLowPriceBlock } from "../mocks/utils";
-import { liquidationHelper, liquidationHelperAbi } from "@pike-liq-bot/utils";
+import {
+  liquidationHelper,
+  liquidationHelperAbi,
+  stETH,
+  USDC,
+  WETH,
+} from "@pike-liq-bot/utils";
 import { PriceHandler } from "#/handlers/priceHandler";
 import { PositionHandler } from "#/handlers/positionHandler";
 import { AllUserPositionsWithValue, LiquidationData } from "#/types";
-
-vi.mock("#/services/clients", async () => {
-  const actual = await vi.importActual("#/services/clients");
-  return {
-    ...actual,
-    publicClient: {
-      // @ts-ignore
-      ...actual.publicClient,
-      multicall: vi.fn().mockResolvedValue([
-        { result: 1000000n, status: "success" }, // USDC price ($1)
-        { result: 1000000000n, status: "success" }, // WETH price ($2000)
-        { result: 1900000000n, status: "success" }, // stETH price ($1900)
-      ]),
-    },
-  };
-});
+import { parseUnits } from "viem";
 
 describe("checkAmountToLiquidate", () => {
   let positionHandler: PositionHandler;
@@ -39,14 +29,21 @@ describe("checkAmountToLiquidate", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    const contractReader = new ContractReader(publicClient);
+    priceHandler = new PriceHandler();
 
-    priceHandler = new PriceHandler(contractReader);
+    const mockPrices: Record<string, bigint> = {
+      [USDC]: parseUnits("1", 6),
+      [WETH]: parseUnits("1000", 6),
+      [stETH]: parseUnits("1900", 6),
+    };
 
+    // Mock the getPrice method
+    const getPriceMock = vi.spyOn(priceHandler, "getPrice");
+    getPriceMock.mockImplementation((token) => {
+      return mockPrices[token] || BigInt(0);
+    });
     positionHandler = new PositionHandler(priceHandler);
 
-    // Initialize price handler
-    await priceHandler.updatePrices();
     positionHandler.allPositions = {
       [userA]: mockUserAPosition,
     };
@@ -54,7 +51,7 @@ describe("checkAmountToLiquidate", () => {
       getEnv("BOT_PRIVATE_KEY") as `0x${string}`
     );
     const pikeClient = new PikeClient(walletClient);
-    liquidationHandler = new LiquidationHandler(contractReader, pikeClient);
+    liquidationHandler = new LiquidationHandler(pikeClient);
     liquidationHandler.closeFactorMantissa = 500000000000000000n;
     liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
   });
