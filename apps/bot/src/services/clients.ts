@@ -48,30 +48,30 @@ export class PikeClient {
     this.log = log;
   }
 
-  private async getOptimizedGasFees() {
-    // Get current block's base fee
-    const block = await publicClient.getBlock();
-    const baseFee = block.baseFeePerGas!;
+  // private async getOptimizedGasFees() {
+  //   // Get current block's base fee
+  //   const block = await publicClient.getBlock();
+  //   const baseFee = block.baseFeePerGas!;
 
-    // Set priority fee (2 Gwei)
-    const maxPriorityFeePerGas = 5_000_000_000n;
+  //   // Set priority fee (2 Gwei)
+  //   const maxPriorityFeePerGas = 5_000_000_000n;
 
-    // maxFeePerGas must be at least baseFee + maxPriorityFeePerGas
-    // Add 20% buffer to ensure better inclusion
-    const maxFeePerGas =
-      baseFee + maxPriorityFeePerGas + (baseFee * 50n) / 100n;
+  //   // maxFeePerGas must be at least baseFee + maxPriorityFeePerGas
+  //   // Add 20% buffer to ensure better inclusion
+  //   const maxFeePerGas =
+  //     baseFee + maxPriorityFeePerGas + (baseFee * 50n) / 100n;
 
-    if (this.log) {
-      console.log(`Base fee: ${baseFee} wei`);
-      console.log(`Max priority fee: ${maxPriorityFeePerGas} wei`);
-      console.log(`Max fee: ${maxFeePerGas} wei`);
-    }
+  //   if (this.log) {
+  //     console.log(`Base fee: ${baseFee} wei`);
+  //     console.log(`Max priority fee: ${maxPriorityFeePerGas} wei`);
+  //     console.log(`Max fee: ${maxFeePerGas} wei`);
+  //   }
 
-    return {
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-    };
-  }
+  //   return {
+  //     maxFeePerGas,
+  //     maxPriorityFeePerGas,
+  //   };
+  // }
 
   private async waitForTransactionWithTimeout(
     hash: `0x${string}`,
@@ -101,13 +101,16 @@ export class PikeClient {
     }
   }
 
-  async sendAndWaitForReceipt(tx: {
-    to: Address;
-    data: `0x${string}`;
-    value: bigint;
-    walletClient?: WalletClient;
-    maxRetries?: number;
-  }) {
+  async sendAndWaitForReceipt(
+    tx: {
+      to: Address;
+      data: `0x${string}`;
+      value: bigint;
+      walletClient?: WalletClient;
+      maxRetries?: number;
+    },
+    defaultGasEstimate?: bigint
+  ) {
     const maxRetries = tx.maxRetries ?? 3;
     let attempt = 0;
     let lastError: Error | null = null;
@@ -117,13 +120,15 @@ export class PikeClient {
         const walletClientToUse = tx.walletClient ?? this.walletClient;
 
         // Get optimized gas fees
-        const gasFees = await this.getOptimizedGasFees();
+        // const gasF ees = await this.getOptimizedGasFees();
 
         // Estimate gas with a buffer
-        const gasEstimate = await publicClient.estimateGas({
-          account: walletClientToUse.account!,
-          ...tx,
-        });
+        const gasEstimate =
+          defaultGasEstimate ||
+          (await publicClient.estimateGas({
+            account: walletClientToUse.account!,
+            ...tx,
+          }));
         const gasLimit = (gasEstimate * 120n) / 100n; // Add 20% buffer
 
         if (this.log) {
@@ -132,9 +137,9 @@ export class PikeClient {
             `data: ${tx.data}`,
             `value: ${tx.value}`,
             `\nValue: ${tx.value}`,
-            `\nGas Limit: ${gasLimit}`,
-            `\nMax Fee: ${gasFees.maxFeePerGas} wei`,
-            `\nPriority Fee: ${gasFees.maxPriorityFeePerGas} wei`
+            `\nGas Limit: ${gasLimit}`
+            // `\nMax Fee: ${gasFees.maxFeePerGas} wei`,
+            // `\nPriority Fee: ${gasFees.maxPriorityFeePerGas} wei`
           );
         }
 
@@ -142,7 +147,7 @@ export class PikeClient {
           ...tx,
           account: walletClientToUse.account!,
           chain: walletClientToUse.chain,
-          ...gasFees,
+          // ...gasFees,
           gas: gasLimit,
         });
 
@@ -325,7 +330,8 @@ export class PikeClient {
     collateralPToken: Address;
     minAmountOut: bigint;
   }) {
-    return this.sendAndWaitForReceipt({
+    // this will not use sendAndWaitForReceipt because we want this to faster. So, we will not estimate gas.
+    return this.walletClient.sendTransaction({
       to: liquidationHelper,
       data: encodeFunctionData({
         abi: liquidationHelperAbi,
@@ -340,6 +346,9 @@ export class PikeClient {
         ],
       }),
       value: 0n,
+      account: this.walletClient.account!,
+      chain: this.walletClient.chain,
+      gas: 616_192n, // https://dashboard.tenderly.co/tx/base-sepolia/0x5e9480113449ff093881784ea92eea1511f83bf443b24b2d7c641b4bd7edeb00
     });
   }
 

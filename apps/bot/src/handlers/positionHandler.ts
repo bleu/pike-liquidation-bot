@@ -11,14 +11,9 @@ export class PositionHandler {
 
   constructor(
     private readonly priceHandler: PriceHandler,
-    public positionsToMonitorLimit: number = 2,
     public minCollateralUsdValue: number = 500
   ) {
-    logger.debug("Initializing PositionHandler", {
-      class: "PositionHandler",
-      positionsToMonitorLimit,
-      minCollateralUsdValue,
-    });
+    logger.debug("Initializing PositionHandler");
   }
 
   async updatePositions() {
@@ -129,39 +124,9 @@ export class PositionHandler {
     });
 
     const allPositionsWithValue = this.getAllPositionsWithUsdValue();
-    const allPositionsFiltered = allPositionsWithValue.filter(
+    return allPositionsWithValue.filter(
       (position) =>
         position.totalCollateralUsdValue > this.minCollateralUsdValue
     );
-
-    logger.debug(`Filtered positions by minimum collateral value`, {
-      class: "PositionHandler",
-      totalPositions: allPositionsWithValue.length,
-      filteredPositions: allPositionsFiltered.length,
-      minCollateralUsdValue: this.minCollateralUsdValue,
-    });
-
-    const allPositionsToMonitor = allPositionsFiltered
-      .sort((a, b) => {
-        const diffA =
-          (a.totalCollateralUsdValue - a.totalBorrowedUsdValue) /
-          a.totalCollateralUsdValue;
-
-        const diffB =
-          (b.totalCollateralUsdValue - b.totalBorrowedUsdValue) /
-          b.totalCollateralUsdValue;
-
-        return diffA - diffB;
-      })
-      .slice(0, this.positionsToMonitorLimit);
-
-    logger.info(
-      `Selected ${allPositionsToMonitor.length} positions to monitor`,
-      {
-        class: "PositionHandler",
-      }
-    );
-
-    return allPositionsToMonitor;
   }
 }

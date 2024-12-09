@@ -27,17 +27,18 @@ async function main(): Promise<void> {
   // Handle shutdown gracefully
   process.on("SIGINT", () => {
     console.log("Shutting down...");
-    bot.stop();
     process.exit(0);
   });
 
   // Start the bot
   try {
-    await bot.startToMonitor();
     console.log("Bot is running. Press Ctrl+C to stop.");
 
     // Set up periodic updates every 30 seconds
     setInterval(updatePositions, 30000);
+
+    // Set up periodic liquidation checks every 500ms
+    setInterval(bot.updatePricesAndCheckForLiquidation, 500);
 
     // Initial update
     await updatePositions();
@@ -46,7 +47,6 @@ async function main(): Promise<void> {
     await new Promise(() => {}); // Never resolves, keeps process alive
   } catch (error) {
     console.error("Error running bot:", error);
-    bot.stop();
     process.exit(1);
   }
 }

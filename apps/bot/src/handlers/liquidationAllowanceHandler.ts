@@ -17,7 +17,7 @@ import {
   LiquidationData,
 } from "#/types";
 
-export class LiquidationHandler {
+export class LiquidationAllowanceHandler {
   public liquidationIncentiveMantissa: bigint = 0n;
   public closeFactorMantissa: bigint = 0n;
 
