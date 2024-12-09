@@ -12,21 +12,28 @@ export class LiquidationBot {
   private priceHandler: PriceHandler;
   private positionHandler: PositionHandler;
   private liquidationHandler: LiquidationHandler;
+  private minProfitUsdValue?: number;
 
   constructor({
     pikeClient,
     minCollateralUsdValue = 500,
+    minProfitUsdValue,
   }: {
     pikeClient: PikeClient;
     positionsToMonitorLimit?: number;
     minCollateralUsdValue?: number;
+    minProfitUsdValue?: number;
   }) {
     this.priceHandler = new PriceHandler();
     this.positionHandler = new PositionHandler(
       this.priceHandler,
       minCollateralUsdValue
     );
-    this.liquidationHandler = new LiquidationHandler(pikeClient);
+    this.liquidationHandler = new LiquidationHandler(
+      pikeClient,
+      minProfitUsdValue
+    );
+    this.minProfitUsdValue = minProfitUsdValue;
   }
 
   public updatePositionsToMonitor = async () => {
@@ -50,6 +57,13 @@ export class LiquidationBot {
       (userPosition) =>
         this.liquidationHandler.checkLiquidationAllowed(userPosition) &&
         !this.onLiquidation.includes(userPosition.id)
+    );
+
+    logger.info(
+      `Found ${liquidatablePositions.length} liquidatable positions`,
+      {
+        class: "LiquidationBot",
+      }
     );
 
     liquidatablePositions.forEach(this.liquidatePosition);
@@ -91,9 +105,11 @@ export class LiquidationBot {
           ),
         });
 
-      logger.info(
-        `Position liquidated for borrower ${liquidationData.borrower} on tx: ${liquidationReceipt}`
-      );
+      if (liquidationReceipt) {
+        logger.info(
+          `Position liquidated for borrower ${liquidationData.borrower} on tx: ${liquidationReceipt}`
+        );
+      }
 
       this.onLiquidation = this.onLiquidation.filter((id) => id !== data.id);
     }

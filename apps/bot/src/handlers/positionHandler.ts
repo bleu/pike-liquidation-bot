@@ -74,7 +74,7 @@ export class PositionHandler {
             formatUnits(position.borrowed * tokenPrice, 6 + decimals)
           );
 
-          logger.info(
+          logger.debug(
             `Calculated USD values for position in market ${position.marketId}`,
             {
               class: "PositionHandler",

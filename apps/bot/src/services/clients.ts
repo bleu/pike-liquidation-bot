@@ -315,6 +315,29 @@ export class PikeClient {
     });
   }
 
+  async liquidatePositionRaw({
+    borrower,
+    borrowPToken,
+    repayAmount,
+    collateralPToken,
+  }: {
+    borrower: Address;
+    borrowPToken: Address;
+    repayAmount: bigint;
+    collateralPToken: Address;
+  }) {
+    // it expects that the caller has the collateral token in their wallet and it is approved to the liquidationHelper
+    return this.sendAndWaitForReceipt({
+      to: borrowPToken,
+      data: encodeFunctionData({
+        abi: pTokenAbi,
+        functionName: "liquidateBorrow",
+        args: [borrower, repayAmount, collateralPToken],
+      }),
+      value: 0n,
+    });
+  }
+
   async liquidatePosition({
     pool,
     borrowPToken,
