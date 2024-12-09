@@ -71,7 +71,7 @@ export class PriceServiceMain implements PriceService {
       args: [assetAddress],
     });
 
-    const price = Number(formatUnits(priceWei, Number(getDecimals(assetAddress))));
+    const price = Number(formatUnits(priceWei, 36 - Number(getDecimals(assetAddress))));
 
     // Update cache
     this.cache[assetAddress] = {
