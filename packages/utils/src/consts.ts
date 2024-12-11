@@ -2,10 +2,17 @@ import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "./contracts";
 import { Address } from "viem";
 
 export const getUnderlying = (pToken: Address) => {
-  if (pToken === pWETH) return WETH;
-  if (pToken === pUSDC) return USDC;
-  if (pToken === pstETH) return stETH;
+  if (pToken.toLowerCase() === pWETH.toLowerCase()) return WETH;
+  if (pToken.toLowerCase() === pUSDC.toLowerCase()) return USDC;
+  if (pToken.toLowerCase() === pstETH.toLowerCase()) return stETH;
   throw new Error(`Unknown pToken: ${pToken}`);
+};
+
+export const getPToken = (underlying: Address) => {
+  if (underlying.toLowerCase() === WETH.toLowerCase()) return pWETH;
+  if (underlying.toLowerCase() === USDC.toLowerCase()) return pUSDC;
+  if (underlying.toLowerCase() === stETH.toLowerCase()) return pstETH;
+  throw new Error(`Unknown underlying: ${underlying}`);
 };
 
 export const getDecimals = (token: Address) => {

@@ -6,3 +6,4 @@ export * from "./abis/mockTokenAbi";
 export * from "./abis/oracleEngineAbi";
 export * from "./abis/liquidationHelperAbi";
 export * from "./consts";
+export * from "./math";
