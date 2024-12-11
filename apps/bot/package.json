@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@ethersproject/providers": "^5.7.2",
     "@pike-liq-bot/utils": "workspace:*",
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.4.5",
