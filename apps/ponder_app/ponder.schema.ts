@@ -28,6 +28,11 @@ export const market = onchainTable("market", (t) => ({
   secondKink: t.bigint().default(0n), // Second kink
   isListed: t.boolean().default(false), // Market listing status
   lastUpdated: t.bigint().default(0n), // Last update timestamp
+  totalSupply: t.bigint().default(0n), // Total supply
+  cash: t.bigint().default(0n), // Token underlying balance
+  totalBorrows: t.bigint().default(0n), // Total borrows
+  totalReserves: t.bigint().default(0n), // Total reserves
+  borrowIndex: t.bigint().default(0n), // Borrow index
 }));
 
 export const user = onchainTable("user", (t) => ({
@@ -44,6 +49,7 @@ export const position = onchainTable(
     balance: t.bigint().notNull(), // pToken balance
     borrowed: t.bigint().notNull(), // Amount borrowed
     isOnMarket: t.boolean().notNull(), // User is on market
+    interestIndex: t.bigint(), // Borrow index
     lastUpdated: t.bigint().notNull(), // Last update timestamp
   }),
   (table) => ({

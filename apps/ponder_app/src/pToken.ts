@@ -1,8 +1,7 @@
 import { ponder } from "@/generated";
 import { market, position } from "../ponder.schema";
-import { createOrUpdateUser } from "./utils";
+import { createOrUpdateUser, NULL_ADDRESS } from "./utils";
 
-// Handler for NewInterestParams event
 ponder.on("pToken:NewInterestParams", async ({ event, context }) => {
   const {
     baseRatePerSecond,
@@ -25,7 +24,6 @@ ponder.on("pToken:NewInterestParams", async ({ event, context }) => {
   });
 });
 
-// Handler for NewReserveFactor event
 ponder.on("pToken:NewReserveFactor", async ({ event, context }) => {
   const { newReserveFactorMantissa } = event.args;
   const pToken = event.log.address;
@@ -36,7 +34,6 @@ ponder.on("pToken:NewReserveFactor", async ({ event, context }) => {
   });
 });
 
-// Handler for NewRiskEngine event
 ponder.on("pToken:NewRiskEngine", async ({ event, context }) => {
   const { newRiskEngine } = event.args;
   const pToken = event.log.address;
@@ -47,7 +44,6 @@ ponder.on("pToken:NewRiskEngine", async ({ event, context }) => {
   });
 });
 
-// Handler for NewProtocolSeizeShare event
 ponder.on("pToken:NewProtocolSeizeShare", async ({ event, context }) => {
   const { newProtocolSeizeShareMantissa } = event.args;
   const pToken = event.log.address;
@@ -65,7 +61,30 @@ ponder.on("pToken:NewProtocolSeizeShare", async ({ event, context }) => {
     });
 });
 
-// Handler for Mint event
+ponder.on("pToken:AccrueInterest", async ({ event, context }) => {
+  const { borrowIndex, totalBorrows, totalReserves, cashPrior } = event.args;
+  const pToken = event.log.address;
+  const lastUpdated = BigInt(event.block.timestamp);
+
+  await context.db
+    .insert(market)
+    .values({
+      id: pToken,
+      totalBorrows,
+      totalReserves,
+      borrowIndex,
+      cash: cashPrior,
+      lastUpdated,
+    })
+    .onConflictDoUpdate({
+      totalBorrows,
+      totalReserves,
+      borrowIndex,
+      cash: cashPrior,
+      lastUpdated,
+    });
+});
+
 ponder.on("pToken:Mint", async ({ event, context }) => {
   const { onBehalfOf, mintTokens } = event.args;
   const marketId = event.log.address; // pToken address
@@ -88,30 +107,41 @@ ponder.on("pToken:Mint", async ({ event, context }) => {
     }));
 });
 
-// Handler for Borrow event
 ponder.on("pToken:Borrow", async ({ event, context }) => {
-  const { onBehalfOf, borrowAmount } = event.args;
+  const { onBehalfOf, borrowAmount, totalBorrows } = event.args;
   const marketId = event.log.address; // pToken address
   const timestamp = BigInt(event.block.timestamp);
 
+  const interestIndex = await context.client.readContract({
+    abi: context.contracts.pToken.abi,
+    address: marketId,
+    functionName: "borrowIndex",
+  });
+
   await createOrUpdateUser(context, onBehalfOf, timestamp);
-  await context.db
-    .insert(position)
-    .values({
-      marketId: marketId,
-      userId: onBehalfOf,
-      balance: 0n,
-      borrowed: borrowAmount,
-      isOnMarket: true,
-      lastUpdated: timestamp,
-    })
-    .onConflictDoUpdate((position) => ({
-      borrowed: position.borrowed + borrowAmount,
-      lastUpdated: timestamp,
-    }));
+  await Promise.all([
+    context.db.update(market, { id: marketId }).set(({ totalBorrows }) => ({
+      totalBorrows: (totalBorrows || 0n) + borrowAmount,
+    })),
+    context.db
+      .insert(position)
+      .values({
+        marketId: marketId,
+        userId: onBehalfOf,
+        balance: 0n,
+        borrowed: totalBorrows,
+        isOnMarket: true,
+        lastUpdated: timestamp,
+        interestIndex: interestIndex,
+      })
+      .onConflictDoUpdate({
+        borrowed: totalBorrows,
+        lastUpdated: timestamp,
+        interestIndex: interestIndex,
+      }),
+  ]);
 });
 
-// Handler for Redeem event
 ponder.on("pToken:Redeem", async ({ event, context }) => {
   const { onBehalfOf, redeemTokens } = event.args;
   const marketId = event.log.address;
@@ -126,79 +156,101 @@ ponder.on("pToken:Redeem", async ({ event, context }) => {
     }));
 });
 
-// Handler for RepayBorrow event
 ponder.on("pToken:RepayBorrow", async ({ event, context }) => {
-  const { onBehalfOf, accountBorrows } = event.args;
+  const { onBehalfOf, accountBorrows, repayAmount } = event.args;
   const marketId = event.log.address; // pToken address
   const timestamp = BigInt(event.block.timestamp);
 
+  const borrowIndex = await context.client.readContract({
+    abi: context.contracts.pToken.abi,
+    address: marketId,
+    functionName: "borrowIndex",
+  });
+
   await createOrUpdateUser(context, onBehalfOf, timestamp);
-  await context.db.update(position, { marketId, userId: onBehalfOf }).set({
-    borrowed: accountBorrows,
-    lastUpdated: timestamp,
+  await Promise.all([
+    context.db.update(position, { marketId, userId: onBehalfOf }).set({
+      borrowed: accountBorrows,
+      lastUpdated: timestamp,
+      interestIndex: borrowIndex,
+    }),
+    context.db.update(market, { id: marketId }).set(({ totalBorrows }) => ({
+      totalBorrows: (totalBorrows || 0n) - repayAmount,
+    })),
+  ]);
+});
+
+ponder.on("pToken:ReservesAdded", async ({ event, context }) => {
+  const { newTotalReserves } = event.args;
+  const marketId = event.log.address;
+
+  await context.db.update(market, { id: marketId }).set({
+    totalReserves: newTotalReserves,
   });
 });
 
-// Handler for LiquidateBorrow event
-ponder.on("pToken:LiquidateBorrow", async ({ event, context }) => {
-  const { borrower, repayAmount, pTokenCollateral, seizeTokens } = event.args;
-  const marketId = event.log.address; // pToken being repaid
-  const collateralMarketId = pTokenCollateral; // pToken collateral address
-  const timestamp = BigInt(event.block.timestamp);
+ponder.on("pToken:ReservesReduced", async ({ event, context }) => {
+  const { newTotalReserves } = event.args;
+  const marketId = event.log.address;
 
-  await createOrUpdateUser(context, borrower, timestamp);
-  await context.db
-    .update(position, { marketId, userId: borrower })
-    .set((position) => ({
-      borrowed: position.borrowed - repayAmount,
-      lastUpdated: timestamp,
-    }));
-  await context.db
-    .update(position, { marketId: collateralMarketId, userId: borrower })
-    .set((position) => ({
-      balance: position.balance - seizeTokens,
-      lastUpdated: timestamp,
-    }));
+  await context.db.update(market, { id: marketId }).set({
+    totalReserves: newTotalReserves,
+  });
 });
 
 // Handler for Transfer event
 ponder.on("pToken:Transfer", async ({ event, context }) => {
   const { from, to, value } = event.args;
-  const txHash = event.transaction.hash;
-  const logIndex = event.log.logIndex;
   const marketId = event.log.address; // pToken address
   const timestamp = BigInt(event.block.timestamp);
 
-  // Ignore mint (from address(0)) and burn (to address(0)) as they are handled by Mint/Redeem handlers
-  if (
-    from === "0x0000000000000000000000000000000000000000" ||
-    to === "0x0000000000000000000000000000000000000000"
-  ) {
+  if (from === NULL_ADDRESS) {
+    await context.db
+      .update(market, { id: marketId })
+      .set(({ totalSupply }) => ({
+        totalSupply: (totalSupply || 0n) + value,
+      }));
     return;
   }
 
-  await createOrUpdateUser(context, from, timestamp);
-  await createOrUpdateUser(context, to, timestamp);
+  if (to === NULL_ADDRESS) {
+    await context.db
+      .update(market, { id: marketId })
+      .set(({ totalSupply }) => ({
+        totalSupply: (totalSupply || 0n) - value,
+      }));
+    return;
+  }
 
-  await context.db
-    .update(position, { marketId, userId: from })
-    .set((position) => ({
+  if (
+    from.toLowerCase() === marketId.toLowerCase() ||
+    to.toLowerCase() === marketId.toLowerCase()
+  )
+    return;
+
+  await Promise.all([
+    createOrUpdateUser(context, from, timestamp),
+    createOrUpdateUser(context, to, timestamp),
+  ]);
+
+  await Promise.all([
+    context.db.update(position, { marketId, userId: from }).set((position) => ({
       balance: position.balance - value,
       lastUpdated: timestamp,
-    }));
-
-  await context.db
-    .insert(position)
-    .values({
-      marketId,
-      userId: to,
-      balance: value,
-      borrowed: 0n,
-      isOnMarket: false,
-      lastUpdated: timestamp,
-    })
-    .onConflictDoUpdate((position) => ({
-      balance: position.balance + value,
-      lastUpdated: timestamp,
-    }));
+    })),
+    context.db
+      .insert(position)
+      .values({
+        marketId,
+        userId: to,
+        balance: value,
+        borrowed: 0n,
+        isOnMarket: false,
+        lastUpdated: timestamp,
+      })
+      .onConflictDoUpdate((position) => ({
+        balance: position.balance + value,
+        lastUpdated: timestamp,
+      })),
+  ]);
 });

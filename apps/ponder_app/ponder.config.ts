@@ -1,5 +1,5 @@
 import { createConfig } from "@ponder/core";
-import { http } from "viem";
+import { erc20Abi, http } from "viem";
 import {
   pstETH,
   pTokenAbi,
@@ -7,6 +7,9 @@ import {
   pWETH,
   riskEngine,
   riskEngineAbi,
+  stETH,
+  USDC,
+  WETH,
 } from "@pike-liq-bot/utils";
 
 export default createConfig({
@@ -28,6 +31,12 @@ export default createConfig({
       abi: riskEngineAbi,
       network: "baseSepolia",
       startBlock: 17605781,
+    },
+    underlyingToken: {
+      address: [stETH, WETH, USDC],
+      abi: erc20Abi,
+      network: "baseSepolia",
+      startBlock: 17605796,
     },
   },
 });
