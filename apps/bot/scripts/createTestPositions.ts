@@ -1,6 +1,12 @@
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import * as fs from "fs";
-import { Address, createWalletClient, parseEther, parseUnits } from "viem";
+import {
+  Address,
+  createWalletClient,
+  maxUint256,
+  parseEther,
+  parseUnits,
+} from "viem";
 import { baseSepolia } from "viem/chains";
 import {
   createWalletClientFromPrivateKey,
@@ -19,7 +25,6 @@ import {
   WETH,
 } from "@pike-liq-bot/utils";
 import { getEnv } from "#/utils/env";
-import { MaxUint256 } from "ethers";
 
 export type WalletInfo = {
   address: Address;
@@ -186,7 +191,7 @@ async function createPositionUserD(user: PikeClient) {
   });
   await user.repayToken({
     pToken: pUSDC,
-    amount: MaxUint256,
+    amount: maxUint256,
   });
   await user.redeemToken({
     pToken: pWETH,

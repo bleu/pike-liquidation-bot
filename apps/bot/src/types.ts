@@ -5,6 +5,7 @@ export interface UserPositionData {
   balance: bigint;
   borrowed: bigint;
   isOnMarket: boolean;
+  interestIndex?: bigint;
 }
 export interface UserPositionDataWithValue extends UserPositionData {
   balanceUsdValue: number;
@@ -29,6 +30,16 @@ export interface LiquidationData {
   borrower: Address;
   biggestBorrowPosition: UserPositionData;
   biggestCollateralPosition: UserPositionData;
+}
+
+export interface MarketParameters {
+  borrowIndex: bigint;
+  totalBorrows: bigint;
+  totalReserves: bigint;
+  totalSupply: bigint;
+  cash: bigint;
+  liquidationThreshold: bigint;
+  lastUpdated: bigint;
 }
 
 export const defaultUserPositionData: UserPositionDataWithValue = {

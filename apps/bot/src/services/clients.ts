@@ -1,9 +1,8 @@
-import { createPublicClient, createWalletClient, http } from "viem";
+import { createPublicClient, createWalletClient, http, maxUint256 } from "viem";
 import { getEnv } from "../utils/env";
 import { baseSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { type Address, type WalletClient } from "viem";
-import { MaxUint256 } from "ethers";
 import { encodeFunctionData } from "viem";
 import {
   mockOracleAbi,
@@ -234,7 +233,7 @@ export class PikeClient {
       data: encodeFunctionData({
         abi: mockTokenAbi,
         functionName: "approve",
-        args: [spender, MaxUint256],
+        args: [spender, maxUint256],
       }),
       value: 0n,
     });

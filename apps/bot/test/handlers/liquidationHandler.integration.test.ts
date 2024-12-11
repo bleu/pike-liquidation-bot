@@ -32,9 +32,9 @@ describe("checkAmountToLiquidate", () => {
     priceHandler = new PriceHandler();
 
     const mockPrices: Record<string, bigint> = {
-      [USDC]: parseUnits("1", 6),
-      [WETH]: parseUnits("1000", 6),
-      [stETH]: parseUnits("1900", 6),
+      [USDC]: parseUnits("1", 30),
+      [WETH]: parseUnits("1000", 18),
+      [stETH]: parseUnits("1900", 18),
     };
 
     // Mock the getPrice method
@@ -63,11 +63,6 @@ describe("checkAmountToLiquidate", () => {
       ) as AllUserPositionsWithValue;
 
     expect(userPositions).toBeDefined();
-
-    const checkLiquidationAllowed =
-      liquidationHandler.checkLiquidationAllowed(userPositions);
-
-    expect(checkLiquidationAllowed).toBe(true);
 
     const amountToLiquidate =
       liquidationHandler.checkAmountToLiquidate(userPositions);

@@ -49,9 +49,9 @@ describe("LiquidationHandler", () => {
 
     priceHandler = new PriceHandler();
     const mockPrices: Record<string, bigint> = {
-      [USDC]: parseUnits("1", 6),
-      [WETH]: parseUnits("2000", 6),
-      [stETH]: parseUnits("1900", 6),
+      [USDC]: parseUnits("1", 30),
+      [WETH]: parseUnits("2000", 18),
+      [stETH]: parseUnits("1900", 18),
     };
 
     // Mock the getPrice method
@@ -71,18 +71,6 @@ describe("LiquidationHandler", () => {
     };
   });
 
-  test("should check if liquidation is allowed", () => {
-    const allowed = liquidationHandler.checkLiquidationAllowed({
-      id: pWETH,
-      totalBorrowedUsdValue: 100,
-      totalCollateralUsdValue: 101,
-      positions: [],
-      lastUpdated: 0n,
-    });
-
-    expect(allowed).toBe(true);
-  });
-
   test("should check amount to liquidate", () => {
     const amount = liquidationHandler.checkAmountToLiquidate({
       id: "0x123",
@@ -96,6 +84,7 @@ describe("LiquidationHandler", () => {
           borrowedUsdValue: 100,
           balanceUsdValue: 101,
           isOnMarket: true,
+          interestIndex: 1n,
         },
       ],
       lastUpdated: 0n,
@@ -117,6 +106,7 @@ describe("LiquidationHandler", () => {
           borrowedUsdValue: 0,
           borrowed: 0n,
           isOnMarket: false,
+          interestIndex: 1n,
         },
       ],
     };
@@ -164,13 +154,14 @@ describe("LiquidationHandler", () => {
   });
 
   test("should find biggest collateral position for user C (multiple collaterals)", () => {
+    const allPositionsFromUser = positionHandler
+      .getAllPositionsWithUsdValue()
+      .find(
+        ({ id }) => id === mockUserCPosition.id
+      ) as AllUserPositionsWithValue;
     const biggestPosition =
       liquidationHandler.findBiggestPositionTypeFromAllUserPositions(
-        positionHandler
-          .getAllPositionsWithUsdValue()
-          .find(
-            ({ id }) => id === mockUserCPosition.id
-          ) as AllUserPositionsWithValue,
+        allPositionsFromUser,
         true // isCollateral
       );
 

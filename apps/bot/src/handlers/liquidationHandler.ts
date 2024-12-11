@@ -50,18 +50,6 @@ export class LiquidationHandler {
     });
   }
 
-  checkLiquidationAllowed(userPositions: AllUserPositionsWithValue) {
-    logger.debug("Checking liquidation allowance", {
-      class: "LiquidationHandler",
-      user: userPositions.id,
-    });
-
-    return (
-      userPositions.totalBorrowedUsdValue >
-      userPositions.totalCollateralUsdValue
-    );
-  }
-
   checkAmountToLiquidate(userPositions: AllUserPositionsWithValue) {
     logger.debug("Checking amount to liquidate", {
       class: "LiquidationHandler",

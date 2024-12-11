@@ -15,6 +15,7 @@ interface IQuery {
           balance: string;
           borrowed: string;
           isOnMarket: boolean;
+          interestIndex: string;
         }[];
       };
     }[];
@@ -33,6 +34,7 @@ const QUERY = gql`
             balance
             borrowed
             isOnMarket
+            interestIndex
           }
         }
       }
@@ -55,6 +57,7 @@ export async function getUserPositionsUpdatesAfterBlock(
       balance: BigInt(position.balance),
       borrowed: BigInt(position.borrowed),
       isOnMarket: position.isOnMarket,
+      interestIndex: BigInt(position.interestIndex),
     })),
   }));
 }

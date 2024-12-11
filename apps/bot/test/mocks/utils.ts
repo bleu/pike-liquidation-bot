@@ -31,11 +31,11 @@ export function createMockBlock(number: bigint = 1n): Block {
   } as Block;
 }
 
-export const userA = "0x62dd5BF48A9DC65113DF25B3C68d01A7c161BB63" as const;
-export const userB = "0x87A02bD69cFa511FaccC97CD339e16243daF4a5E" as const;
-export const userC = "0x96520Fb8FE267034e23aCcBD4940dfB4648e7C3A" as const;
-export const userD = "0xCbe2195005c4B8692DbCCA5FA9511DE2eFa32C8d" as const;
-export const userE = "0x0E10f9A63A7800fE4c657334dd6543068ab8A50D" as const;
+export const userA = "0x62dd5bf48a9dc65113df25b3c68d01a7c161bb63" as const;
+export const userB = "0x87a02bd69cfa511faccc97cd339e16243daf4a5e" as const;
+export const userC = "0x96520fb8fe267034e23accbd4940dfb4648e7c3a" as const;
+export const userD = "0xcbe2195005c4b8692dbcca5fa9511de2efa32c8d" as const;
+export const userE = "0x0e10f9a63a7800fe4c657334dd6543068ab8a50d" as const;
 
 export const positionUserA = {
   borrowPTokens: [pstETH] as const,
@@ -88,6 +88,7 @@ export const mockUserAPosition: AllUserPositions = {
       balance: 0n,
       borrowed: 500000000000000000n, // 0.5 stETH
       isOnMarket: true,
+      interestIndex: 1000000000000000000n,
     },
   ],
 };
@@ -109,12 +110,14 @@ export const mockUserBPosition: AllUserPositions = {
       balance: 0n,
       borrowed: 300000000000000000n, // 0.3 WETH
       isOnMarket: true,
+      interestIndex: 1000000000000000000n,
     },
     {
       marketId: pstETH,
       balance: 0n,
       borrowed: 200000000000000000n, // 0.2 stETH
       isOnMarket: true,
+      interestIndex: 1000000000000000000n,
     },
   ],
 };
@@ -141,6 +144,7 @@ export const mockUserCPosition: AllUserPositions = {
       balance: 0n,
       borrowed: 400000000000000000n, // 0.4 stETH
       isOnMarket: true,
+      interestIndex: 1000000000000000000n,
     },
   ],
 };
@@ -162,12 +166,14 @@ export const mockUserDPosition: AllUserPositions = {
       balance: 0n,
       borrowed: 1000000000n, // 1000 USDC
       isOnMarket: true,
+      interestIndex: 1000000000000000000n,
     },
     {
       marketId: pstETH,
       balance: 0n,
       borrowed: 250000000000000000n, // 0.25 stETH
       isOnMarket: true,
+      interestIndex: 1000000000000000000n,
     },
   ],
 };
@@ -189,6 +195,7 @@ export const mockUserEPosition: AllUserPositions = {
       balance: 0n,
       borrowed: 600000000000000000n, // 0.6 stETH
       isOnMarket: true,
+      interestIndex: 1000000000000000000n,
     },
   ],
 };

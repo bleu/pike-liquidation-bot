@@ -24,9 +24,9 @@ describe("PositionHandler", () => {
     vi.clearAllMocks();
     priceHandler = new PriceHandler();
     const mockPrices: Record<string, bigint> = {
-      [USDC]: parseUnits("1", 6),
-      [WETH]: parseUnits("2000", 6),
-      [stETH]: parseUnits("1900", 6),
+      [USDC]: parseUnits("1", 30),
+      [WETH]: parseUnits("2000", 18),
+      [stETH]: parseUnits("1900", 18),
     };
 
     // Mock the getPrice method
@@ -59,6 +59,7 @@ describe("PositionHandler", () => {
             balance: parseEther("0.01"),
             borrowed: 0n,
             isOnMarket: true,
+            interestIndex: 1n,
           },
           // Borrow: stETH
           {
@@ -66,6 +67,7 @@ describe("PositionHandler", () => {
             balance: 0n,
             borrowed: parseEther("0.01"), // 0.001 stETH
             isOnMarket: true,
+            interestIndex: 1n,
           },
         ],
       },

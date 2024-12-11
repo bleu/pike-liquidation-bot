@@ -6,13 +6,14 @@ import { LiquidationHandler } from "./handlers/liquidationHandler";
 import { PikeClient } from "./services/clients";
 import { logger } from "./services/logger";
 import { getUnderlying } from "@pike-liq-bot/utils";
+import { LiquidationAllowanceHandler } from "./handlers/liquidationAllowanceHandler";
 
 export class LiquidationBot {
   private onLiquidation: Address[] = [];
   private priceHandler: PriceHandler;
   private positionHandler: PositionHandler;
   private liquidationHandler: LiquidationHandler;
-  private minProfitUsdValue?: number;
+  private liquidationAllowanceHandler: LiquidationAllowanceHandler;
 
   constructor({
     pikeClient,
@@ -33,7 +34,9 @@ export class LiquidationBot {
       pikeClient,
       minProfitUsdValue
     );
-    this.minProfitUsdValue = minProfitUsdValue;
+    this.liquidationAllowanceHandler = new LiquidationAllowanceHandler(
+      this.priceHandler
+    );
   }
 
   public updatePositionsToMonitor = async () => {
@@ -55,8 +58,9 @@ export class LiquidationBot {
 
     const liquidatablePositions = allUserPositionsWithValue.filter(
       (userPosition) =>
-        this.liquidationHandler.checkLiquidationAllowed(userPosition) &&
-        !this.onLiquidation.includes(userPosition.id)
+        this.liquidationAllowanceHandler.checkLiquidationAllowed(
+          userPosition
+        ) && !this.onLiquidation.includes(userPosition.id)
     );
 
     logger.info(

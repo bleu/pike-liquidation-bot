@@ -3,7 +3,7 @@ import { PriceHandler } from "./priceHandler";
 import { Address, formatUnits } from "viem";
 import { getUserPositionsUpdatesAfterBlock } from "#/services/ponder/positions";
 import { logger } from "../services/logger";
-import { getDecimals, getUnderlying } from "@pike-liq-bot/utils";
+import { getUnderlying } from "@pike-liq-bot/utils";
 
 export class PositionHandler {
   public allPositions: Record<Address, AllUserPositions> = {};
@@ -65,13 +65,12 @@ export class PositionHandler {
         (position) => {
           const underlying = getUnderlying(position.marketId);
           const tokenPrice = this.priceHandler.getPrice(underlying);
-          const decimals = Number(getDecimals(underlying));
 
           const balanceUsdValue = Number(
-            formatUnits(position.balance * tokenPrice, 6 + decimals)
+            formatUnits(position.balance * tokenPrice, 36)
           );
           const borrowedUsdValue = Number(
-            formatUnits(position.borrowed * tokenPrice, 6 + decimals)
+            formatUnits(position.borrowed * tokenPrice, 36)
           );
 
           logger.debug(
