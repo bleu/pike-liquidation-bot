@@ -50,6 +50,10 @@ export class LiquidationBot {
     ]);
   };
 
+  public updateMarketHandlerParameters = async () => {
+    await this.liquidationAllowanceHandler.updateMarketHandlerParameters();
+  };
+
   public updatePricesAndCheckForLiquidation = async () => {
     await this.priceHandler.updatePrices();
 

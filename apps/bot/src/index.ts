@@ -5,6 +5,7 @@ import {
   createWalletClientFromPrivateKey,
   PikeClient,
 } from "./services/clients";
+import { logger } from "./services/logger";
 
 async function main(): Promise<void> {
   const pikeClient = new PikeClient(
@@ -15,12 +16,14 @@ async function main(): Promise<void> {
   const bot = new LiquidationBot({ pikeClient });
 
   // Function to update positions
-  const updatePositions = async () => {
+  const updatePositionsAndMarketData = async () => {
     try {
-      await bot.updatePositionsToMonitor();
-      console.log("Positions updated successfully");
+      await Promise.all([
+        bot.updatePositionsToMonitor(),
+        bot.updateMarketHandlerParameters(),
+      ]);
     } catch (error) {
-      console.error("Error updating positions:", error);
+      logger.error("Error updating positions");
     }
   };
 
@@ -35,13 +38,13 @@ async function main(): Promise<void> {
     console.log("Bot is running. Press Ctrl+C to stop.");
 
     // Set up periodic updates every 30 seconds
-    setInterval(updatePositions, 30000);
+    setInterval(updatePositionsAndMarketData, 30000);
 
     // Set up periodic liquidation checks every 500ms
     setInterval(bot.updatePricesAndCheckForLiquidation, 500);
 
     // Initial update
-    await updatePositions();
+    await updatePositionsAndMarketData();
 
     // Keep the process running
     await new Promise(() => {}); // Never resolves, keeps process alive
