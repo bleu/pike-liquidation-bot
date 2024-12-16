@@ -57,7 +57,7 @@ export async function getUserPositionsUpdatesAfterBlock(
       balance: BigInt(position.balance),
       borrowed: BigInt(position.borrowed),
       isOnMarket: position.isOnMarket,
-      interestIndex: BigInt(position.interestIndex),
+      interestIndex: BigInt(position.interestIndex || "0"),
     })),
   }));
 }

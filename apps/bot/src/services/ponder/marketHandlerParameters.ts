@@ -4,7 +4,16 @@ import { gqlClient } from "./client";
 import { MarketParameters } from "#/types";
 
 interface IQuery {
-  market: MarketParameters;
+  market: {
+    borrowIndex: string;
+    totalBorrows: string;
+    totalReserves: string;
+    totalSupply: string;
+    cash: string;
+    liquidationThreshold: string;
+    protocolSeizeShareMantissa: string;
+    lastUpdated: string;
+  };
 }
 
 const QUERY = gql`
@@ -15,6 +24,7 @@ const QUERY = gql`
       totalBorrows
       totalReserves
       liquidationThreshold
+      protocolSeizeShareMantissa
       cash
     }
   }
@@ -27,5 +37,9 @@ export async function getMarketParameters(
     id: pToken,
   });
 
-  return queryResponse.market;
+  return Object.entries(queryResponse.market).reduce((acc, [key, value]) => {
+    // @ts-ignore
+    acc[key] = BigInt(value);
+    return acc;
+  }, {} as MarketParameters);
 }

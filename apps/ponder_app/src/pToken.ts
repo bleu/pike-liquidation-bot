@@ -1,6 +1,7 @@
 import { ponder } from "@/generated";
 import { market, position } from "../ponder.schema";
 import { createOrUpdateUser, NULL_ADDRESS } from "./utils";
+import { MathSol } from "packages/utils/src";
 
 ponder.on("pToken:NewInterestParams", async ({ event, context }) => {
   const {
@@ -85,28 +86,6 @@ ponder.on("pToken:AccrueInterest", async ({ event, context }) => {
     });
 });
 
-ponder.on("pToken:Mint", async ({ event, context }) => {
-  const { onBehalfOf, mintTokens } = event.args;
-  const marketId = event.log.address; // pToken address
-  const timestamp = BigInt(event.block.timestamp);
-
-  await createOrUpdateUser(context, onBehalfOf, timestamp);
-  await context.db
-    .insert(position)
-    .values({
-      marketId: marketId,
-      userId: onBehalfOf,
-      balance: mintTokens,
-      borrowed: 0n,
-      isOnMarket: false,
-      lastUpdated: timestamp,
-    })
-    .onConflictDoUpdate((position) => ({
-      borrowed: position.borrowed + mintTokens,
-      lastUpdated: timestamp,
-    }));
-});
-
 ponder.on("pToken:Borrow", async ({ event, context }) => {
   const { onBehalfOf, borrowAmount, totalBorrows } = event.args;
   const marketId = event.log.address; // pToken address
@@ -129,35 +108,22 @@ ponder.on("pToken:Borrow", async ({ event, context }) => {
         marketId: marketId,
         userId: onBehalfOf,
         balance: 0n,
-        borrowed: totalBorrows,
+        borrowed: borrowAmount,
         isOnMarket: true,
         lastUpdated: timestamp,
         interestIndex: interestIndex,
       })
-      .onConflictDoUpdate({
-        borrowed: totalBorrows,
+      .onConflictDoUpdate(({ borrowed }) => ({
+        borrowed: borrowAmount + borrowed,
         lastUpdated: timestamp,
         interestIndex: interestIndex,
-      }),
+        isOnMarket: true,
+      })),
   ]);
 });
 
-ponder.on("pToken:Redeem", async ({ event, context }) => {
-  const { onBehalfOf, redeemTokens } = event.args;
-  const marketId = event.log.address;
-  const timestamp = BigInt(event.block.timestamp);
-
-  await createOrUpdateUser(context, onBehalfOf, timestamp);
-  await context.db
-    .update(position, { marketId, userId: onBehalfOf })
-    .set((position) => ({
-      balance: position.balance - redeemTokens,
-      lastUpdated: timestamp,
-    }));
-});
-
 ponder.on("pToken:RepayBorrow", async ({ event, context }) => {
-  const { onBehalfOf, accountBorrows, repayAmount } = event.args;
+  const { onBehalfOf, repayAmount } = event.args;
   const marketId = event.log.address; // pToken address
   const timestamp = BigInt(event.block.timestamp);
 
@@ -169,11 +135,13 @@ ponder.on("pToken:RepayBorrow", async ({ event, context }) => {
 
   await createOrUpdateUser(context, onBehalfOf, timestamp);
   await Promise.all([
-    context.db.update(position, { marketId, userId: onBehalfOf }).set({
-      borrowed: accountBorrows,
-      lastUpdated: timestamp,
-      interestIndex: borrowIndex,
-    }),
+    context.db
+      .update(position, { marketId, userId: onBehalfOf })
+      .set(({ borrowed }) => ({
+        borrowed: borrowed - repayAmount,
+        lastUpdated: timestamp,
+        interestIndex: borrowIndex,
+      })),
     context.db.update(market, { id: marketId }).set(({ totalBorrows }) => ({
       totalBorrows: (totalBorrows || 0n) - repayAmount,
     })),
@@ -198,47 +166,62 @@ ponder.on("pToken:ReservesReduced", async ({ event, context }) => {
   });
 });
 
+ponder.on("pToken:Mint", async ({ event, context }) => {
+  const { mintAmount } = event.args;
+  const marketId = event.log.address; // pToken address
+  const timestamp = BigInt(event.block.timestamp);
+
+  await context.db.update(market, { id: marketId }).set(({ totalSupply }) => ({
+    totalSupply: (totalSupply || 0n) + mintAmount,
+    lastUpdated: timestamp,
+  }));
+});
+
+ponder.on("pToken:Redeem", async ({ event, context }) => {
+  const { redeemAmount } = event.args;
+  const marketId = event.log.address; // pToken address
+  const timestamp = BigInt(event.block.timestamp);
+
+  await context.db.update(market, { id: marketId }).set(({ totalSupply }) => ({
+    totalSupply: (totalSupply || 0n) - redeemAmount,
+    lastUpdated: timestamp,
+  }));
+});
+
 // Handler for Transfer event
 ponder.on("pToken:Transfer", async ({ event, context }) => {
   const { from, to, value } = event.args;
   const marketId = event.log.address; // pToken address
   const timestamp = BigInt(event.block.timestamp);
 
-  if (from === NULL_ADDRESS) {
-    await context.db
-      .update(market, { id: marketId })
-      .set(({ totalSupply }) => ({
-        totalSupply: (totalSupply || 0n) + value,
-      }));
-    return;
-  }
-
-  if (to === NULL_ADDRESS) {
+  if (to.toLowerCase() === marketId.toLowerCase()) {
     await context.db
       .update(market, { id: marketId })
       .set(({ totalSupply }) => ({
         totalSupply: (totalSupply || 0n) - value,
+        lastUpdated: timestamp,
       }));
-    return;
   }
 
   if (
-    from.toLowerCase() === marketId.toLowerCase() ||
-    to.toLowerCase() === marketId.toLowerCase()
-  )
-    return;
+    from.toLowerCase() !== marketId.toLowerCase() &&
+    from.toLowerCase() !== NULL_ADDRESS.toLowerCase()
+  ) {
+    await createOrUpdateUser(context, from, timestamp);
+    await context.db
+      .update(position, { marketId, userId: from })
+      .set((position) => ({
+        balance: position.balance - value,
+        lastUpdated: timestamp,
+      }));
+  }
 
-  await Promise.all([
-    createOrUpdateUser(context, from, timestamp),
-    createOrUpdateUser(context, to, timestamp),
-  ]);
-
-  await Promise.all([
-    context.db.update(position, { marketId, userId: from }).set((position) => ({
-      balance: position.balance - value,
-      lastUpdated: timestamp,
-    })),
-    context.db
+  if (
+    to.toLowerCase() !== marketId.toLowerCase() &&
+    to.toLowerCase() !== NULL_ADDRESS.toLowerCase()
+  ) {
+    await createOrUpdateUser(context, to, timestamp);
+    await context.db
       .insert(position)
       .values({
         marketId,
@@ -251,6 +234,6 @@ ponder.on("pToken:Transfer", async ({ event, context }) => {
       .onConflictDoUpdate((position) => ({
         balance: position.balance + value,
         lastUpdated: timestamp,
-      })),
-  ]);
+      }));
+  }
 });
