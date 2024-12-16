@@ -1,8 +1,36 @@
+import { logger } from "#/services/logger";
 import { getMarketParameters } from "#/services/ponder/marketHandlerParameters";
 import { MarketParameters, UserPositionData } from "#/types";
-import { getSymbol, MathSol } from "@pike-liq-bot/utils";
+import { MathSol, pstETH, pUSDC, pWETH } from "@pike-liq-bot/utils";
 
 export class MarketHandler {
+  public markets: Record<string, IndividualMarketHandler> = {};
+  constructor() {
+    logger.debug("Initializing LiquidationHandler", {
+      class: "LiquidationHandler",
+    });
+
+    this.markets = {
+      [pWETH]: new IndividualMarketHandler(pWETH),
+      [pUSDC]: new IndividualMarketHandler(pUSDC),
+      [pstETH]: new IndividualMarketHandler(pstETH),
+    };
+  }
+
+  async updateMarketHandlerParameters() {
+    logger.debug("Updating market handler parameters", {
+      class: "LiquidationHandler",
+    });
+
+    await Promise.all(
+      Object.values(this.markets).map((marketHandler) =>
+        marketHandler.updateMarketParameters()
+      )
+    );
+  }
+}
+
+class IndividualMarketHandler {
   public marketParameters?: MarketParameters;
 
   constructor(readonly marketId: string) {}
@@ -17,12 +45,9 @@ export class MarketHandler {
     }
 
     return MathSol.divDownFixed(
-      MathSol.mulDownFixed(
-        this.marketParameters.cash +
-          this.marketParameters.totalBorrows -
-          this.marketParameters.totalReserves,
-        this.marketParameters.liquidationThreshold
-      ),
+      this.marketParameters.cash +
+        this.marketParameters.totalBorrows -
+        this.marketParameters.totalReserves,
       this.marketParameters.totalSupply
     );
   }
@@ -38,7 +63,9 @@ export class MarketHandler {
     );
   }
 
-  calculateBorrowBalancePlusEffects(position: UserPositionData) {
+  calculateBorrowBalancePlusEffects(
+    position: Pick<UserPositionData, "borrowed" | "interestIndex">
+  ) {
     if (!position?.interestIndex) {
       return 0n;
     }
@@ -52,6 +79,9 @@ export class MarketHandler {
     if (!position.isOnMarket) return 0n;
     const collateralRate = this.calculateCollateralRate();
 
-    return MathSol.mulUpFixed(position.balance, collateralRate);
+    return MathSol.mulUpFixed(
+      MathSol.mulUpFixed(position.balance, collateralRate),
+      this.marketParameters?.liquidationThreshold || 0n
+    );
   }
 }

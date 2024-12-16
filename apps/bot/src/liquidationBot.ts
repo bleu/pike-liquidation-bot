@@ -1,18 +1,19 @@
 import { Address } from "viem";
-import { AllUserPositionsWithValue } from "./types";
+import { LiquidationData } from "./types";
 import { PriceHandler } from "./handlers/priceHandler";
 import { PositionHandler } from "./handlers/positionHandler";
 import { LiquidationHandler } from "./handlers/liquidationHandler";
 import { PikeClient } from "./services/clients";
 import { logger } from "./services/logger";
-import { getUnderlying } from "@pike-liq-bot/utils";
 import { LiquidationAllowanceHandler } from "./handlers/liquidationAllowanceHandler";
+import { MarketHandler } from "./handlers/marketHandler";
 
 export class LiquidationBot {
   private onLiquidation: Address[] = [];
   private priceHandler: PriceHandler;
   private positionHandler: PositionHandler;
   private liquidationHandler: LiquidationHandler;
+  private marketHandler: MarketHandler;
   private liquidationAllowanceHandler: LiquidationAllowanceHandler;
 
   constructor({
@@ -26,16 +27,20 @@ export class LiquidationBot {
     minProfitUsdValue?: number;
   }) {
     this.priceHandler = new PriceHandler();
+    this.marketHandler = new MarketHandler();
     this.positionHandler = new PositionHandler(
       this.priceHandler,
+      this.marketHandler,
       minCollateralUsdValue
     );
     this.liquidationHandler = new LiquidationHandler(
       pikeClient,
+      this.marketHandler,
       minProfitUsdValue
     );
     this.liquidationAllowanceHandler = new LiquidationAllowanceHandler(
-      this.priceHandler
+      this.priceHandler,
+      this.marketHandler
     );
   }
 
@@ -51,16 +56,21 @@ export class LiquidationBot {
   };
 
   public updateMarketHandlerParameters = async () => {
-    await this.liquidationAllowanceHandler.updateMarketHandlerParameters();
+    await this.marketHandler.updateMarketHandlerParameters();
   };
 
   public updatePricesAndCheckForLiquidation = async () => {
     await this.priceHandler.updatePrices();
 
-    const allUserPositionsWithValue =
-      this.positionHandler.getAllPositionsWithUsdValue();
+    logger.info("updatePricesAndCheckForLiquidation", {
+      allPositionsLength: Object.values(this.positionHandler.allPositions)
+        .length,
+      onLiquidationLength: this.onLiquidation.length,
+    });
 
-    const liquidatablePositions = allUserPositionsWithValue.filter(
+    const liquidatablePositions = Object.values(
+      this.positionHandler.allPositions
+    ).filter(
       (userPosition) =>
         this.liquidationAllowanceHandler.checkLiquidationAllowed(
           userPosition
@@ -71,55 +81,68 @@ export class LiquidationBot {
       `Found ${liquidatablePositions.length} liquidatable positions`,
       {
         class: "LiquidationBot",
+        addresses: liquidatablePositions.map((position) => position.id),
       }
     );
 
-    liquidatablePositions.forEach(this.liquidatePosition);
-    liquidatablePositions.forEach((position) =>
-      this.onLiquidation.push(position.id)
+    const liquidationPositionUpdatedWithValue = liquidatablePositions
+      .map((position) => this.positionHandler.getUpdatedPositions(position))
+      .map((position) =>
+        this.positionHandler.getUserPositionWithValue(position)
+      );
+
+    const biggestUserPostions = liquidationPositionUpdatedWithValue
+      .map((position) =>
+        this.liquidationHandler.getBiggestPositionsFromAllUserPositions(
+          position
+        )
+      )
+      .filter((position) => !!position);
+
+    const liquidationData = biggestUserPostions
+      .map((position) =>
+        this.liquidationHandler.getLiquidationDataFromBiggestUserPositions(
+          position
+        )
+      )
+      .filter((position) =>
+        this.liquidationHandler.checkIfLiquidationIsAboveProfitThreshold(
+          position.expectedProfitUsdValue
+        )
+      );
+
+    logger.info(
+      `Found ${liquidationData.length} liquidatable positions that passing the filters`,
+      {
+        class: "LiquidationBot",
+        addresses: liquidationData.map((position) => position.borrower),
+      }
     );
+
+    liquidationData.forEach((data) => {
+      this.onLiquidation.push(data.borrower);
+      this.liquidatePosition(data);
+    });
   };
 
-  private liquidatePosition = async (data: AllUserPositionsWithValue) => {
-    const repayAmount = this.liquidationHandler.checkAmountToLiquidate(data);
-
-    if (repayAmount > 0n) {
-      logger.info(`Liquidating position for borrower ${data.id}`, {
-        class: "LiquidationBot",
+  private liquidatePosition = async (data: LiquidationData) => {
+    await this.liquidationHandler
+      .liquidatePosition(data)
+      .then((liquidationReceipt) => {
+        logger.info(
+          `Position liquidated for borrower ${data.borrower} on tx: ${liquidationReceipt}`
+        );
+      })
+      .catch((error) => {
+        logger.error("Failed to liquidate position", {
+          class: "LiquidationBot",
+          error,
+        });
       });
 
-      const liquidationData =
-        this.liquidationHandler.getLiquidationDataFromAllUserPositions(data);
-
-      if (!liquidationData) {
-        logger.error("No liquidation data found", {
-          class: "LiquidationBot",
-          borrower: data.id,
-        });
-        return;
-      }
-
-      const liquidationReceipt =
-        await this.liquidationHandler.liquidatePosition({
-          borrower: liquidationData.borrower,
-          borrowPToken: liquidationData.biggestBorrowPosition.marketId,
-          repayAmount,
-          collateralPToken: liquidationData.biggestCollateralPosition.marketId,
-          borrowTokenPrice: this.priceHandler.getPrice(
-            getUnderlying(liquidationData.biggestBorrowPosition.marketId)
-          ),
-          collateralTokenPrice: this.priceHandler.getPrice(
-            getUnderlying(liquidationData.biggestCollateralPosition.marketId)
-          ),
-        });
-
-      if (liquidationReceipt) {
-        logger.info(
-          `Position liquidated for borrower ${liquidationData.borrower} on tx: ${liquidationReceipt}`
-        );
-      }
-
-      this.onLiquidation = this.onLiquidation.filter((id) => id !== data.id);
+    const index = this.onLiquidation.indexOf(data.borrower);
+    if (index > -1) {
+      this.onLiquidation = this.onLiquidation.splice(index, 1);
     }
   };
 }

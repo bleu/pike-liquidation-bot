@@ -10,6 +10,7 @@ export interface UserPositionData {
 export interface UserPositionDataWithValue extends UserPositionData {
   balanceUsdValue: number;
   borrowedUsdValue: number;
+  tokenPrice: bigint;
 }
 
 export interface AllUserPositions {
@@ -26,10 +27,19 @@ export interface AllUserPositionsWithValue {
   totalBorrowedUsdValue: number;
 }
 
+export interface BiggestUserPositions {
+  borrower: Address;
+  biggestBorrowPosition: UserPositionDataWithValue;
+  biggestCollateralPosition: UserPositionDataWithValue;
+}
+
 export interface LiquidationData {
   borrower: Address;
-  biggestBorrowPosition: UserPositionData;
-  biggestCollateralPosition: UserPositionData;
+  repayAmount: bigint;
+  minAmountOut: bigint;
+  borrowPToken: Address;
+  collateralPToken: Address;
+  expectedProfitUsdValue: number;
 }
 
 export interface MarketParameters {
@@ -37,6 +47,7 @@ export interface MarketParameters {
   totalBorrows: bigint;
   totalReserves: bigint;
   totalSupply: bigint;
+  protocolSeizeShareMantissa: bigint;
   cash: bigint;
   liquidationThreshold: bigint;
   lastUpdated: bigint;
@@ -49,4 +60,5 @@ export const defaultUserPositionData: UserPositionDataWithValue = {
   balanceUsdValue: 0,
   borrowedUsdValue: 0,
   isOnMarket: false,
+  tokenPrice: 0n,
 };

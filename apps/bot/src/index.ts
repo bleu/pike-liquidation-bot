@@ -24,6 +24,7 @@ async function main(): Promise<void> {
       ]);
     } catch (error) {
       logger.error("Error updating positions");
+      console.error(error);
     }
   };
 
@@ -36,17 +37,12 @@ async function main(): Promise<void> {
   // Start the bot
   try {
     console.log("Bot is running. Press Ctrl+C to stop.");
-
-    // Set up periodic updates every 30 seconds
-    setInterval(updatePositionsAndMarketData, 30000);
-
-    // Set up periodic liquidation checks every 500ms
-    setInterval(bot.updatePricesAndCheckForLiquidation, 500);
-
     // Initial update
     await updatePositionsAndMarketData();
 
-    // Keep the process running
+    setInterval(updatePositionsAndMarketData, 30_000);
+    setInterval(bot.updatePricesAndCheckForLiquidation, 500);
+
     await new Promise(() => {}); // Never resolves, keeps process alive
   } catch (error) {
     console.error("Error running bot:", error);

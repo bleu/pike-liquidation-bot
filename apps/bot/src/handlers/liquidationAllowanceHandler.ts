@@ -1,33 +1,17 @@
-import { getUnderlying, pstETH, pUSDC, pWETH } from "@pike-liq-bot/utils";
+import { getUnderlying, MathSol } from "@pike-liq-bot/utils";
 import { logger } from "../services/logger";
 import { AllUserPositions } from "#/types";
 import { PriceHandler } from "./priceHandler";
 import { MarketHandler } from "./marketHandler";
 
 export class LiquidationAllowanceHandler {
-  private marketHandlers: Record<string, MarketHandler> = {};
-  constructor(private readonly priceHandler: PriceHandler) {
+  constructor(
+    private readonly priceHandler: PriceHandler,
+    private readonly markerHandler: MarketHandler
+  ) {
     logger.debug("Initializing LiquidationHandler", {
       class: "LiquidationHandler",
     });
-
-    this.marketHandlers = {
-      [pWETH]: new MarketHandler(pWETH),
-      [pUSDC]: new MarketHandler(pUSDC),
-      [pstETH]: new MarketHandler(pstETH),
-    };
-  }
-
-  async updateMarketHandlerParameters() {
-    logger.debug("Updating market handler parameters", {
-      class: "LiquidationHandler",
-    });
-
-    await Promise.all(
-      Object.values(this.marketHandlers).map((marketHandler) =>
-        marketHandler.updateMarketParameters()
-      )
-    );
   }
 
   checkLiquidationAllowed(userPositions: AllUserPositions) {
@@ -38,29 +22,32 @@ export class LiquidationAllowanceHandler {
 
     const sumBorrowPlusEffects = Object.values(userPositions.positions)
       .map((position) => {
-        const marketHandler = this.marketHandlers[position.marketId];
+        const marketHandler = this.markerHandler.markets[position.marketId];
         if (!marketHandler) {
           throw new Error("Market handler not found");
         }
 
-        return (
-          marketHandler.calculateBorrowBalancePlusEffects(position) *
+        const borrowPlusEffects = MathSol.mulDownFixed(
+          marketHandler.calculateBorrowBalancePlusEffects(position),
           this.priceHandler.getPrice(getUnderlying(position.marketId))
         );
+
+        return borrowPlusEffects;
       })
       .reduce((acc, val) => acc + val, 0n);
 
     const sumCollateralPlusEffects = Object.values(userPositions.positions)
       .map((position) => {
-        const marketHandler = this.marketHandlers[position.marketId];
+        const marketHandler = this.markerHandler.markets[position.marketId];
         if (!marketHandler) {
           throw new Error("Market handler not found");
         }
 
-        return (
-          marketHandler.calculateCollateralBalancePlusEffects(position) *
+        const collateralPlusEffects = MathSol.mulDownFixed(
+          marketHandler.calculateCollateralBalancePlusEffects(position),
           this.priceHandler.getPrice(getUnderlying(position.marketId))
         );
+        return collateralPlusEffects;
       })
       .reduce((acc, val) => acc + val, 0n);
 

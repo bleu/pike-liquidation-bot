@@ -18,18 +18,17 @@ import {
 } from "@pike-liq-bot/utils";
 
 export const chain = baseSepolia;
-export const transport = http(getEnv("FORK_URL"));
 
 export const publicClient = createPublicClient({
   chain,
-  transport,
+  transport: http(),
 });
 
 export function createWalletClientFromPrivateKey(privateKey: `0x${string}`) {
   return createWalletClient({
     account: privateKeyToAccount(privateKey),
     chain,
-    transport,
+    transport: http(),
   });
 }
 
@@ -353,25 +352,25 @@ export class PikeClient {
     minAmountOut: bigint;
   }) {
     // this will not use sendAndWaitForReceipt because we want this to faster. So, we will not estimate gas.
-    return this.walletClient.sendTransaction({
-      to: liquidationHelper,
-      data: encodeFunctionData({
-        abi: liquidationHelperAbi,
-        functionName: "liquidate",
-        args: [
-          pool,
-          borrowPToken,
-          collateralPToken,
-          borrower,
-          repayAmount,
-          minAmountOut,
-        ],
-      }),
-      value: 0n,
-      account: this.walletClient.account!,
-      chain: this.walletClient.chain,
-      gas: 616_192n, // https://dashboard.tenderly.co/tx/base-sepolia/0x5e9480113449ff093881784ea92eea1511f83bf443b24b2d7c641b4bd7edeb00
-    });
+    return this.sendAndWaitForReceipt(
+      {
+        to: liquidationHelper,
+        data: encodeFunctionData({
+          abi: liquidationHelperAbi,
+          functionName: "liquidate",
+          args: [
+            pool,
+            borrowPToken,
+            collateralPToken,
+            borrower,
+            repayAmount,
+            minAmountOut,
+          ],
+        }),
+        value: 0n,
+      },
+      800_000n
+    );
   }
 
   async redeemToken({ pToken, amount }: { pToken: Address; amount: bigint }) {
