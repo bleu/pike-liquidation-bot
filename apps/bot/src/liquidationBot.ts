@@ -77,14 +77,6 @@ export class LiquidationBot {
         ) && !this.onLiquidation.includes(userPosition.id)
     );
 
-    logger.info(
-      `Found ${liquidatablePositions.length} liquidatable positions`,
-      {
-        class: "LiquidationBot",
-        addresses: liquidatablePositions.map((position) => position.id),
-      }
-    );
-
     const liquidationPositionUpdatedWithValue = liquidatablePositions
       .map((position) => this.positionHandler.getUpdatedPositions(position))
       .map((position) =>
@@ -112,7 +104,7 @@ export class LiquidationBot {
       );
 
     logger.info(
-      `Found ${liquidationData.length} liquidatable positions that passing the filters`,
+      `Found ${liquidationData.length} new liquidatable positions that passed the filters`,
       {
         class: "LiquidationBot",
         addresses: liquidationData.map((position) => position.borrower),
