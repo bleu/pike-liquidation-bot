@@ -40,8 +40,8 @@ async function main(): Promise<void> {
     // Initial update
     await updatePositionsAndMarketData();
 
-    setInterval(updatePositionsAndMarketData, 30_000);
-    setInterval(bot.updatePricesAndCheckForLiquidation, 500);
+    setInterval(updatePositionsAndMarketData, 120_000);
+    setInterval(bot.updatePricesAndCheckForLiquidation, 3_000);
 
     await new Promise(() => {}); // Never resolves, keeps process alive
   } catch (error) {
