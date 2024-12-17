@@ -21,7 +21,7 @@ export const chain = baseSepolia;
 
 export const publicClient = createPublicClient({
   chain,
-  transport: http(),
+  transport: http(getEnv("RPC_URL")),
 });
 
 export function createWalletClientFromPrivateKey(privateKey: `0x${string}`) {
@@ -352,25 +352,22 @@ export class PikeClient {
     minAmountOut: bigint;
   }) {
     // this will not use sendAndWaitForReceipt because we want this to faster. So, we will not estimate gas.
-    return this.sendAndWaitForReceipt(
-      {
-        to: liquidationHelper,
-        data: encodeFunctionData({
-          abi: liquidationHelperAbi,
-          functionName: "liquidate",
-          args: [
-            pool,
-            borrowPToken,
-            collateralPToken,
-            borrower,
-            repayAmount,
-            minAmountOut,
-          ],
-        }),
-        value: 0n,
-      },
-      800_000n
-    );
+    return this.sendAndWaitForReceipt({
+      to: liquidationHelper,
+      data: encodeFunctionData({
+        abi: liquidationHelperAbi,
+        functionName: "liquidate",
+        args: [
+          pool,
+          borrowPToken,
+          collateralPToken,
+          borrower,
+          repayAmount,
+          minAmountOut,
+        ],
+      }),
+      value: 0n,
+    });
   }
 
   async redeemToken({ pToken, amount }: { pToken: Address; amount: bigint }) {
