@@ -207,7 +207,7 @@ export class LiquidationHandler {
     repayAmount: bigint;
     collateralPToken: Address;
   }) {
-    logger.info("Initiating position liquidation using bot liquidity", {
+    logger.debug("Initiating position liquidation using bot liquidity", {
       class: "LiquidationHandler",
       borrower,
       borrowPToken,
@@ -243,7 +243,7 @@ export class LiquidationHandler {
       collateralPToken,
     });
 
-    logger.info("Executing liquidation using handler", {
+    logger.debug("Executing liquidation using handler", {
       class: "LiquidationHandler",
       borrower,
       pool,

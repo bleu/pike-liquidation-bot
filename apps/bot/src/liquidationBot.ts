@@ -62,7 +62,7 @@ export class LiquidationBot {
   public updatePricesAndCheckForLiquidation = async () => {
     await this.priceHandler.updatePrices();
 
-    logger.info("updatePricesAndCheckForLiquidation", {
+    logger.debug("updatePricesAndCheckForLiquidation", {
       allPositionsLength: Object.values(this.positionHandler.allPositions)
         .length,
       onLiquidationLength: this.onLiquidation.length,

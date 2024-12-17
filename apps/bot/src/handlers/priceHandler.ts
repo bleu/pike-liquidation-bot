@@ -49,7 +49,7 @@ export class PriceHandler {
       );
     });
 
-    logger.info("Price update completed", {
+    logger.debug("Price update completed", {
       class: "PriceHandler",
       updatedPrices: Object.fromEntries(
         Object.entries(this.tokenPrices).map(([token, price]) => [
