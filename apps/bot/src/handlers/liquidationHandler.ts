@@ -56,6 +56,10 @@ export class LiquidationHandler {
   }
 
   checkAmountToLiquidate(biggestUserPositions: BiggestUserPositions) {
+    const borrowPrice = biggestUserPositions?.biggestBorrowPosition.tokenPrice;
+    const collateralPrice =
+      biggestUserPositions?.biggestCollateralPosition.tokenPrice;
+
     const amountToLiquidate = MathSol.mulDownFixed(
       biggestUserPositions?.biggestBorrowPosition.borrowed,
       this.closeFactorMantissa
@@ -69,7 +73,22 @@ export class LiquidationHandler {
       amountToLiquidate: amountToLiquidate.toString(),
     });
 
-    return amountToLiquidate;
+    // Avoid try to liquidate more than the account has on collateral
+    const repayValue = MathSol.mulUpFixed(amountToLiquidate, borrowPrice);
+
+    const totalCollateralValue = MathSol.mulDownFixed(
+      biggestUserPositions?.biggestCollateralPosition.balance,
+      collateralPrice
+    );
+
+    if (totalCollateralValue > repayValue) {
+      return amountToLiquidate;
+    }
+
+    return MathSol.divDownFixed(
+      totalCollateralValue,
+      MathSol.mulUpFixed(borrowPrice, this.liquidationIncentiveMantissa)
+    );
   }
 
   getPoolAddress({
