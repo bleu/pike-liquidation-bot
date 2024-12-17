@@ -21,3 +21,5 @@ Initial prices set
 - stETH price dropped at block 18486581
 - stETH price increased at block 18486586
 - stETH price restored
+
+After that, there were multiple liquidations tests on this positions, so the current state of them is not this anymore.
