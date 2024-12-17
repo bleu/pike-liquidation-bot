@@ -18,7 +18,8 @@ import {
 import { PriceHandler } from "#/handlers/priceHandler";
 import { PositionHandler } from "#/handlers/positionHandler";
 import { AllUserPositionsWithValue, LiquidationData } from "#/types";
-import { parseUnits } from "viem";
+import { parseEther, parseUnits } from "viem";
+import { MockMarketHandler } from "../mocks/mockMarketHandler";
 
 describe("checkAmountToLiquidate", () => {
   let positionHandler: PositionHandler;
@@ -42,7 +43,8 @@ describe("checkAmountToLiquidate", () => {
     getPriceMock.mockImplementation((token) => {
       return mockPrices[token] || BigInt(0);
     });
-    positionHandler = new PositionHandler(priceHandler);
+    const marketHandler = new MockMarketHandler();
+    positionHandler = new PositionHandler(priceHandler, marketHandler);
 
     positionHandler.allPositions = {
       [userA]: mockUserAPosition,
@@ -51,38 +53,33 @@ describe("checkAmountToLiquidate", () => {
       getEnv("BOT_PRIVATE_KEY") as `0x${string}`
     );
     const pikeClient = new PikeClient(walletClient);
-    liquidationHandler = new LiquidationHandler(pikeClient);
+    liquidationHandler = new LiquidationHandler(pikeClient, marketHandler);
     liquidationHandler.closeFactorMantissa = 500000000000000000n;
     liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
   });
   test("should liquidate position", async () => {
-    const userPositions = positionHandler
-      .getAllPositionsWithUsdValue()
-      .find(
-        ({ id }) => id === mockUserAPosition.id
-      ) as AllUserPositionsWithValue;
+    const userPositions =
+      positionHandler.getUserPositionWithValue(mockUserAPosition);
 
     expect(userPositions).toBeDefined();
 
-    const amountToLiquidate =
-      liquidationHandler.checkAmountToLiquidate(userPositions);
+    const biggestUserPositions =
+      liquidationHandler.getBiggestPositionsFromAllUserPositions(userPositions);
 
-    const expectedAmountOut = liquidationHandler.calculateMinAmountOut({
-      borrowTokenPrice: 1900000000n,
-      repayAmount: amountToLiquidate,
-      collateralTokenPrice: 1000000000n,
-    });
+    expect(biggestUserPositions).toBeDefined();
 
-    const minAmountOut = (expectedAmountOut * 1n) / 100n;
+    if (!biggestUserPositions) {
+      return;
+    }
 
     const liquidationData =
-      liquidationHandler.getLiquidationDataFromAllUserPositions(
-        userPositions
+      liquidationHandler.getLiquidationDataFromBiggestUserPositions(
+        biggestUserPositions
       ) as LiquidationData;
 
     const pool = liquidationHandler.getPoolAddress({
-      borrowPToken: liquidationData.biggestBorrowPosition.marketId,
-      collateralPToken: liquidationData.biggestCollateralPosition.marketId,
+      borrowPToken: biggestUserPositions.biggestBorrowPosition.marketId,
+      collateralPToken: biggestUserPositions.biggestCollateralPosition.marketId,
     });
 
     await publicClient.simulateContract({
@@ -91,11 +88,11 @@ describe("checkAmountToLiquidate", () => {
       functionName: "liquidate",
       args: [
         pool,
-        liquidationData.biggestBorrowPosition.marketId,
-        liquidationData.biggestCollateralPosition.marketId,
+        liquidationData.borrowPToken,
+        liquidationData.collateralPToken,
         liquidationData.borrower,
-        amountToLiquidate,
-        minAmountOut,
+        liquidationData.repayAmount,
+        liquidationData.minAmountOut,
       ],
       account: walletClient.account.address,
       blockNumber: wethLowPriceBlock,

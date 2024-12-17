@@ -30,7 +30,7 @@ export class MarketHandler {
   }
 }
 
-class IndividualMarketHandler {
+export class IndividualMarketHandler {
   public marketParameters?: MarketParameters;
 
   constructor(readonly marketId: string) {}

@@ -4,6 +4,7 @@ import { AllUserPositions, MarketParameters } from "#/types";
 import { pWETH, pUSDC, WETH, USDC, stETH } from "@pike-liq-bot/utils";
 import { PriceHandler } from "#/handlers/priceHandler";
 import { LiquidationAllowanceHandler } from "#/handlers/liquidationAllowanceHandler";
+import { MockMarketHandler } from "../mocks/mockMarketHandler";
 
 class MockPriceHandler extends PriceHandler {
   public getPrice = vi.fn();
@@ -12,6 +13,7 @@ class MockPriceHandler extends PriceHandler {
 
 describe("LiquidationAllowanceHandler Tests", () => {
   let mockPriceHandler: PriceHandler;
+  let marketHandler: MockMarketHandler;
 
   beforeEach(() => {
     mockPriceHandler = new MockPriceHandler();
@@ -28,6 +30,7 @@ describe("LiquidationAllowanceHandler Tests", () => {
     liquidationThreshold,
     cash: parseEther("500"),
     lastUpdated: 0n,
+    protocolSeizeShareMantissa: parseEther("0.1"),
   });
 
   it("should return true for liquidatable position (underwater)", () => {
@@ -75,12 +78,12 @@ describe("LiquidationAllowanceHandler Tests", () => {
       positions,
     };
 
-    const handler = new LiquidationAllowanceHandler(mockPriceHandler);
+    marketHandler = new MockMarketHandler();
 
-    // Set market parameters
-    Object.values(handler["marketHandlers"]).forEach((marketHandler) => {
-      marketHandler.marketParameters = generateMarketParams();
-    });
+    const handler = new LiquidationAllowanceHandler(
+      mockPriceHandler,
+      marketHandler
+    );
 
     const result = handler.checkLiquidationAllowed(userPositions);
     expect(result).toBe(true);
@@ -131,12 +134,10 @@ describe("LiquidationAllowanceHandler Tests", () => {
       positions,
     };
 
-    const handler = new LiquidationAllowanceHandler(mockPriceHandler);
-
-    // Set market parameters
-    Object.values(handler["marketHandlers"]).forEach((marketHandler) => {
-      marketHandler.marketParameters = generateMarketParams();
-    });
+    const handler = new LiquidationAllowanceHandler(
+      mockPriceHandler,
+      marketHandler
+    );
 
     const result = handler.checkLiquidationAllowed(userPositions);
     expect(result).toBe(false);

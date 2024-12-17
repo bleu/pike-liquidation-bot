@@ -1,9 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { LiquidationHandler } from "#/handlers/liquidationHandler";
-import { publicClient } from "#/services/clients";
 import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "@pike-liq-bot/utils";
 import { PikeClient } from "#/services/clients";
-import { createWalletClient, http, parseUnits } from "viem";
+import { createWalletClient, http, parseEther, parseUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import {
@@ -18,9 +17,9 @@ import {
   userD,
   userE,
 } from "../mocks/utils";
-import { AllUserPositionsWithValue } from "#/types";
 import { PositionHandler } from "#/handlers/positionHandler";
 import { PriceHandler } from "#/handlers/priceHandler";
+import { MockMarketHandler } from "../mocks/mockMarketHandler";
 
 describe("LiquidationHandler", () => {
   let liquidationHandler: LiquidationHandler;
@@ -43,11 +42,14 @@ describe("LiquidationHandler", () => {
     // Initialize mocked PikeClient
     mockPikeClient = new PikeClient(mockWalletClient);
 
-    liquidationHandler = new LiquidationHandler(mockPikeClient);
+    const marketHandler = new MockMarketHandler();
+
+    liquidationHandler = new LiquidationHandler(mockPikeClient, marketHandler);
     liquidationHandler.closeFactorMantissa = 500000000000000000n;
     liquidationHandler.liquidationIncentiveMantissa = 1050000000000000000n;
 
     priceHandler = new PriceHandler();
+
     const mockPrices: Record<string, bigint> = {
       [USDC]: parseUnits("1", 30),
       [WETH]: parseUnits("2000", 18),
@@ -59,7 +61,7 @@ describe("LiquidationHandler", () => {
     getPriceMock.mockImplementation((token) => {
       return mockPrices[token] || BigInt(0);
     });
-    positionHandler = new PositionHandler(priceHandler);
+    positionHandler = new PositionHandler(priceHandler, marketHandler);
 
     // Initialize price handler
     positionHandler.allPositions = {
@@ -71,27 +73,6 @@ describe("LiquidationHandler", () => {
     };
   });
 
-  test("should check amount to liquidate", () => {
-    const amount = liquidationHandler.checkAmountToLiquidate({
-      id: "0x123",
-      totalBorrowedUsdValue: 100,
-      totalCollateralUsdValue: 101,
-      positions: [
-        {
-          marketId: pWETH,
-          balance: 1000n,
-          borrowed: 2000n,
-          borrowedUsdValue: 100,
-          balanceUsdValue: 101,
-          isOnMarket: true,
-          interestIndex: 1n,
-        },
-      ],
-      lastUpdated: 0n,
-    });
-
-    expect(amount).toBe(1000n); // Half of borrow balance
-  });
   test("should handle positions with no liquidation opportunity", () => {
     const userPositions = {
       id: userA,
@@ -107,24 +88,21 @@ describe("LiquidationHandler", () => {
           borrowed: 0n,
           isOnMarket: false,
           interestIndex: 1n,
+          tokenPrice: 10n,
         },
       ],
     };
 
     const liquidationData =
-      liquidationHandler.getLiquidationDataFromAllUserPositions(userPositions);
+      liquidationHandler.getBiggestPositionsFromAllUserPositions(userPositions);
 
     expect(liquidationData).toBeUndefined();
   });
 
   test("should consider token prices when finding biggest positions", () => {
     const liquidationData =
-      liquidationHandler.getLiquidationDataFromAllUserPositions(
-        positionHandler
-          .getAllPositionsWithUsdValue()
-          .find(
-            ({ id }) => id === mockUserBPosition.id
-          ) as AllUserPositionsWithValue
+      liquidationHandler.getBiggestPositionsFromAllUserPositions(
+        positionHandler.getUserPositionWithValue(mockUserBPosition)
       );
 
     expect(liquidationData).toEqual({
@@ -141,11 +119,7 @@ describe("LiquidationHandler", () => {
   test("should find biggest collateral position for user A (WETH)", () => {
     const biggestPosition =
       liquidationHandler.findBiggestPositionTypeFromAllUserPositions(
-        positionHandler
-          .getAllPositionsWithUsdValue()
-          .find(
-            ({ id }) => id === mockUserAPosition.id
-          ) as AllUserPositionsWithValue,
+        positionHandler.getUserPositionWithValue(mockUserAPosition),
         true // isCollateral
       );
 
@@ -154,14 +128,9 @@ describe("LiquidationHandler", () => {
   });
 
   test("should find biggest collateral position for user C (multiple collaterals)", () => {
-    const allPositionsFromUser = positionHandler
-      .getAllPositionsWithUsdValue()
-      .find(
-        ({ id }) => id === mockUserCPosition.id
-      ) as AllUserPositionsWithValue;
     const biggestPosition =
       liquidationHandler.findBiggestPositionTypeFromAllUserPositions(
-        allPositionsFromUser,
+        positionHandler.getUserPositionWithValue(mockUserCPosition),
         true // isCollateral
       );
 
@@ -175,11 +144,7 @@ describe("LiquidationHandler", () => {
   test("should find biggest borrow position for user B (multiple borrows)", () => {
     const biggestPosition =
       liquidationHandler.findBiggestPositionTypeFromAllUserPositions(
-        positionHandler
-          .getAllPositionsWithUsdValue()
-          .find(
-            ({ id }) => id === mockUserBPosition.id
-          ) as AllUserPositionsWithValue,
+        positionHandler.getUserPositionWithValue(mockUserBPosition),
         false // isCollateral
       );
 
@@ -190,12 +155,8 @@ describe("LiquidationHandler", () => {
 
   test("should get liquidation data for user A", () => {
     const liquidationData =
-      liquidationHandler.getLiquidationDataFromAllUserPositions(
-        positionHandler
-          .getAllPositionsWithUsdValue()
-          .find(
-            ({ id }) => id === mockUserAPosition.id
-          ) as AllUserPositionsWithValue
+      liquidationHandler.getBiggestPositionsFromAllUserPositions(
+        positionHandler.getUserPositionWithValue(mockUserAPosition)
       );
 
     expect(liquidationData).toEqual({

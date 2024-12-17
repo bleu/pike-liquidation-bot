@@ -1,4 +1,4 @@
-import { Address, formatUnits, parseUnits } from "viem";
+import { Address, formatUnits, parseEther, parseUnits } from "viem";
 import { PikeClient } from "../services/clients";
 import {
   WETH,
@@ -24,10 +24,11 @@ import { MarketHandler } from "./marketHandler";
 export class LiquidationHandler {
   public liquidationIncentiveMantissa: bigint = 0n;
   public closeFactorMantissa: bigint = 0n;
+  public maxSlippage: bigint = parseUnits("10", 16);
 
   constructor(
     private readonly pikeClient: PikeClient,
-    private readonly marketHandler: MarketHandler,
+    public readonly marketHandler: MarketHandler,
     private readonly minProfitUsdValue: number = 0
   ) {
     logger.debug("Initializing LiquidationHandler", {
@@ -177,11 +178,9 @@ export class LiquidationHandler {
       protocolSeizeShareMantissa
     );
 
-    // 90% of expected amount out to cover the pool fee cost
-    // if use a real pool to perform the liquidation this would be more complex and involve slippage, mev, etc
     const minAmountOut = MathSol.mulDownFixed(
       expectedAmountOut,
-      parseUnits("90", 16)
+      parseEther("1") - this.maxSlippage
     );
 
     logger.debug("Calculated min amount out", {
