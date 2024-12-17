@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@pike-liq-bot/utils": "workspace:*",
-    "@ponder/core": "^0.7.15",
+    "@ponder/core": "^0.7.17",
     "hono": "^4.5.0",
     "viem": "^2.21.3"
   },
