@@ -16,7 +16,7 @@ export default createConfig({
   networks: {
     baseSepolia: {
       chainId: 84532,
-      transport: http("https://base-sepolia.blockpi.network/v1/rpc/public"),
+      transport: http(),
     },
   },
   contracts: {
