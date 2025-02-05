@@ -1,6 +1,6 @@
 import { ponder } from "@/generated";
 import { market, position, riskEngine } from "../ponder.schema";
-import { createOrUpdateUser } from "./utils";
+import { createOrUpdateUser, NULL_ADDRESS } from "./utils";
 
 // Handler for MarketListed event
 ponder.on("RiskEngine:MarketListed", async ({ event, context }) => {
@@ -17,17 +17,22 @@ ponder.on("RiskEngine:MarketListed", async ({ event, context }) => {
 // Handler for NewSupplyCap event
 ponder.on("RiskEngine:NewSupplyCap", async ({ event, context }) => {
   const { pToken, newSupplyCap } = event.args;
+  // ignore null address
+  if (pToken == NULL_ADDRESS) return;
 
   await context.db.update(market, { id: pToken }).set({
     supplyCap: newSupplyCap,
     lastUpdated: BigInt(event.block.timestamp),
   });
+
 });
 
 // Handler for NewBorrowCap event
 ponder.on("RiskEngine:NewBorrowCap", async ({ event, context }) => {
   const { pToken, newBorrowCap } = event.args;
-
+  // ignore null address
+  if (pToken == NULL_ADDRESS) return;
+  
   await context.db.update(market, { id: pToken }).set({
     borrowCap: newBorrowCap,
     lastUpdated: BigInt(event.block.timestamp),
