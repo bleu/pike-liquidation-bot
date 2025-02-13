@@ -46,31 +46,6 @@ export class PikeClient {
     this.log = log;
   }
 
-  // private async getOptimizedGasFees() {
-  //   // Get current block's base fee
-  //   const block = await publicClient.getBlock();
-  //   const baseFee = block.baseFeePerGas!;
-
-  //   // Set priority fee (2 Gwei)
-  //   const maxPriorityFeePerGas = 5_000_000_000n;
-
-  //   // maxFeePerGas must be at least baseFee + maxPriorityFeePerGas
-  //   // Add 20% buffer to ensure better inclusion
-  //   const maxFeePerGas =
-  //     baseFee + maxPriorityFeePerGas + (baseFee * 50n) / 100n;
-
-  //   if (this.log) {
-  //     console.log(`Base fee: ${baseFee} wei`);
-  //     console.log(`Max priority fee: ${maxPriorityFeePerGas} wei`);
-  //     console.log(`Max fee: ${maxFeePerGas} wei`);
-  //   }
-
-  //   return {
-  //     maxFeePerGas,
-  //     maxPriorityFeePerGas,
-  //   };
-  // }
-
   private async waitForTransactionWithTimeout(
     hash: `0x${string}`,
     timeoutMs: number = 15000, // 1 minute default timeout
