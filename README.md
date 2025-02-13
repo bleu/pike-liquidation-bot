@@ -34,21 +34,14 @@ pnpm install
 
 Launch the components in the following order:
 
-1. **Position Indexer**:
-   ```bash
-   cd apps/ponder_app
-   pnpm dev
-   # Available at http://localhost:42069
-   ```
-
-2. **Mock Price API**:
+1. **Mock Price API**:
    ```bash
    cd apps/mock_price_api
    pnpm dev
    # Available at http://localhost:3000
    ```
 
-3. **Liquidation Bot**:
+2. **Liquidation Bot**:
    ```bash
    cd apps/bot
    pnpm dev
@@ -56,9 +49,6 @@ Launch the components in the following order:
 
 ## Component Details
 
-### Position Indexer
-
-The Position Indexer is built using Ponder and serves as the backbone for tracking protocol data. It maintains real-time information about the Pike protocol, including liquidation parameters and user positions (collateral and borrow balances). Since oracles typically don't emit events for price updates, price information isn't handled by the indexer.
 
 ### Mock Price API
 
