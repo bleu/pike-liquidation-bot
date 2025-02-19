@@ -18,10 +18,11 @@ import {
 } from "@pike-liq-bot/utils";
 
 export const chain = baseSepolia;
+export const transport = http(getEnv("RPC_URL"));
 
 export const publicClient = createPublicClient({
   chain,
-  transport: http(getEnv("RPC_URL")),
+  transport,
 });
 
 export function createWalletClientFromPrivateKey(privateKey: `0x${string}`) {

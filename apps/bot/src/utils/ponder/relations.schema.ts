@@ -22,7 +22,7 @@ import {
   userDelegation,
   userEMode,
   withdraw,
-} from "../../tables.schema";
+} from "./tables.schema";
 
 export const beaconProxyRelations = relations(beaconProxy, ({ many }) => ({
   protocols: many(protocol),

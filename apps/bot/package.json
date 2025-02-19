@@ -9,6 +9,7 @@
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.4",
+    "graphql-tag": "^2.12.6",
     "ponder": "^0.9.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
@@ -18,11 +19,15 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "test": "pnpm vitest"
+    "test": "pnpm vitest",
+    "codegen": "graphql-codegen --config codegen.yml"
   },
   "devDependencies": {
     "@commitlint/cli": "17.0.3",
     "@commitlint/config-conventional": "17.0.3",
+    "@graphql-codegen/cli": "^5.0.5",
+    "@graphql-codegen/typescript": "^4.1.4",
+    "@graphql-codegen/typescript-operations": "^4.5.0",
     "sort-package-json": "2.10.0",
     "tsx": "^4.19.2",
     "vitest": "^2.1.4"
