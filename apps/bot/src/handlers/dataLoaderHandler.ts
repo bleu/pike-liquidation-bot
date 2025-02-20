@@ -1,17 +1,20 @@
 import { logger } from "../services/logger";
-import { getEnv } from "../utils/env";
 import { UserPositionData } from "../types";
 import { graphQLClient } from "#/utils/graphql/client";
 import { GetProtocolDataQuery } from "#/utils/graphql/generated/graphql";
 import { GET_PROTOCOL_DATA } from "#/utils/graphql/query";
-
-const priceUrl = getEnv("PRICE_URL");
+import { publicClient } from "#/services/clients";
+import { oracleEngine, oracleEngineAbi } from "@pike-liq-bot/utils";
+import { Address } from "viem";
 
 export class DataLoaderHandler {
   constructor(private protocolId: string) {}
 
   transformProtocolDataToUserPositions(
-    data: GetProtocolDataQuery
+    data: GetProtocolDataQuery,
+    underlyingPrices: {
+      [key: string]: bigint;
+    }
   ): UserPositionData[][] {
     if (!data.protocol?.pTokens?.items) {
       return [];
@@ -83,10 +86,10 @@ export class DataLoaderHandler {
             borrowCap: BigInt(pToken.borrowCap),
             exchangeRateStored: BigInt(pToken.exchangeRateStored),
             borrowIndex: BigInt(pToken.borrowIndex),
-            underlyingPriceCurrent: BigInt(pToken.underlyingPriceCurrent),
+            underlyingPriceCurrent: BigInt(underlyingPrices[pToken.id]),
           },
           eMode: eModeData,
-          underlyingTokenPrice: BigInt(pToken.underlyingPriceCurrent),
+          underlyingTokenPrice: BigInt(underlyingPrices[pToken.id]),
         };
       });
     });
@@ -104,9 +107,44 @@ export class DataLoaderHandler {
     );
   }
 
+  async loadCurrentUnderlyingPrices(data: GetProtocolDataQuery) {
+    logger.debug("Loading current oracle prices");
+
+    const pTokens = data.protocol?.pTokens?.items;
+
+    if (!pTokens || !pTokens.length) {
+      throw Error("Non pTokens found");
+    }
+
+    const multicallResponse = await publicClient.multicall({
+      contracts: pTokens.map(({ address }) => ({
+        address: data.protocol?.oracle as Address,
+        abi: oracleEngineAbi,
+        functionName: "getUnderlyingPrice",
+        args: [address],
+      })),
+    });
+
+    const prices = multicallResponse.map(({ result }) => result);
+
+    if (
+      !prices.every(
+        (price) => typeof price === "string" || typeof price === "bigint"
+      )
+    ) {
+      throw Error("No price tokens found");
+    }
+
+    return pTokens.reduce((acc, pToken, i) => {
+      acc[pToken.id] = BigInt(prices[i]);
+      return acc;
+    }, {} as { [key: string]: bigint });
+  }
+
   async loadUserPositionData(): Promise<UserPositionData[][]> {
     const usersData = await this.loadUsersData();
+    const prices = await this.loadCurrentUnderlyingPrices(usersData);
 
-    return this.transformProtocolDataToUserPositions(usersData);
+    return this.transformProtocolDataToUserPositions(usersData, prices);
   }
 }

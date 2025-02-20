@@ -42,7 +42,6 @@ export class LiquidationBot {
         users: usersToLiquidateBiggestPositions.map(
           (user) => user.biggestBorrowPosition.userBalance.userId
         ),
-        data: usersToLiquidateBiggestPositions,
       }
     );
     usersToLiquidateBiggestPositions.forEach(async (userBiggestPosition) => {

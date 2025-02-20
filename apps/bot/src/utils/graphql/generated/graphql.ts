@@ -41,8 +41,6 @@ export type Query = {
   actionPauseds: ActionPausedPage;
   aprSnapshot?: Maybe<AprSnapshot>;
   aprSnapshots: AprSnapshotPage;
-  beaconProxy?: Maybe<BeaconProxy>;
-  beaconProxys: BeaconProxyPage;
   borrow?: Maybe<Borrow>;
   borrows: BorrowPage;
   delegateUpdated?: Maybe<DelegateUpdated>;
@@ -113,21 +111,6 @@ export type QueryAprSnapshotsArgs = {
   orderBy?: InputMaybe<Scalars['String']['input']>;
   orderDirection?: InputMaybe<Scalars['String']['input']>;
   where?: InputMaybe<AprSnapshotFilter>;
-};
-
-
-export type QueryBeaconProxyArgs = {
-  id: Scalars['String']['input'];
-};
-
-
-export type QueryBeaconProxysArgs = {
-  after?: InputMaybe<Scalars['String']['input']>;
-  before?: InputMaybe<Scalars['String']['input']>;
-  limit?: InputMaybe<Scalars['Int']['input']>;
-  orderBy?: InputMaybe<Scalars['String']['input']>;
-  orderDirection?: InputMaybe<Scalars['String']['input']>;
-  where?: InputMaybe<BeaconProxyFilter>;
 };
 
 
@@ -610,85 +593,6 @@ export type AprSnapshotPage = {
   __typename?: 'aprSnapshotPage';
   /** List of interest rate history information records */
   items: Array<AprSnapshot>;
-  /** Information about pagination in a connection */
-  pageInfo: PageInfo;
-  /** Total number of records matching the query */
-  totalCount: Scalars['Int']['output'];
-};
-
-/** Get a single proxy contract information by address */
-export type BeaconProxy = {
-  __typename?: 'beaconProxy';
-  /** Address of the beacon contract (exact match) */
-  beaconAddress: Scalars['String']['output'];
-  /** The blockchain network identifier (exact match) */
-  chainId: Scalars['BigInt']['output'];
-  /** Unique identifier for the beacon proxy (exact match) */
-  id: Scalars['String']['output'];
-  /** Address of the implementation contract (exact match) */
-  implementationAddress: Scalars['String']['output'];
-  protocols?: Maybe<ProtocolPage>;
-};
-
-
-/** Get a single proxy contract information by address */
-export type BeaconProxyProtocolsArgs = {
-  after?: InputMaybe<Scalars['String']['input']>;
-  before?: InputMaybe<Scalars['String']['input']>;
-  limit?: InputMaybe<Scalars['Int']['input']>;
-  orderBy?: InputMaybe<Scalars['String']['input']>;
-  orderDirection?: InputMaybe<Scalars['String']['input']>;
-  where?: InputMaybe<ProtocolFilter>;
-};
-
-export type BeaconProxyFilter = {
-  AND?: InputMaybe<Array<InputMaybe<BeaconProxyFilter>>>;
-  OR?: InputMaybe<Array<InputMaybe<BeaconProxyFilter>>>;
-  beaconAddress?: InputMaybe<Scalars['String']['input']>;
-  beaconAddress_contains?: InputMaybe<Scalars['String']['input']>;
-  beaconAddress_ends_with?: InputMaybe<Scalars['String']['input']>;
-  beaconAddress_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  beaconAddress_not?: InputMaybe<Scalars['String']['input']>;
-  beaconAddress_not_contains?: InputMaybe<Scalars['String']['input']>;
-  beaconAddress_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  beaconAddress_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  beaconAddress_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  beaconAddress_starts_with?: InputMaybe<Scalars['String']['input']>;
-  chainId?: InputMaybe<Scalars['BigInt']['input']>;
-  chainId_gt?: InputMaybe<Scalars['BigInt']['input']>;
-  chainId_gte?: InputMaybe<Scalars['BigInt']['input']>;
-  chainId_in?: InputMaybe<Array<InputMaybe<Scalars['BigInt']['input']>>>;
-  chainId_lt?: InputMaybe<Scalars['BigInt']['input']>;
-  chainId_lte?: InputMaybe<Scalars['BigInt']['input']>;
-  chainId_not?: InputMaybe<Scalars['BigInt']['input']>;
-  chainId_not_in?: InputMaybe<Array<InputMaybe<Scalars['BigInt']['input']>>>;
-  id?: InputMaybe<Scalars['String']['input']>;
-  id_contains?: InputMaybe<Scalars['String']['input']>;
-  id_ends_with?: InputMaybe<Scalars['String']['input']>;
-  id_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  id_not?: InputMaybe<Scalars['String']['input']>;
-  id_not_contains?: InputMaybe<Scalars['String']['input']>;
-  id_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  id_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  id_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  id_starts_with?: InputMaybe<Scalars['String']['input']>;
-  implementationAddress?: InputMaybe<Scalars['String']['input']>;
-  implementationAddress_contains?: InputMaybe<Scalars['String']['input']>;
-  implementationAddress_ends_with?: InputMaybe<Scalars['String']['input']>;
-  implementationAddress_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  implementationAddress_not?: InputMaybe<Scalars['String']['input']>;
-  implementationAddress_not_contains?: InputMaybe<Scalars['String']['input']>;
-  implementationAddress_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  implementationAddress_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  implementationAddress_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  implementationAddress_starts_with?: InputMaybe<Scalars['String']['input']>;
-};
-
-/** Paginated list of proxy contract information records */
-export type BeaconProxyPage = {
-  __typename?: 'beaconProxyPage';
-  /** List of proxy contract information records */
-  items: Array<BeaconProxy>;
   /** Information about pagination in a connection */
   pageInfo: PageInfo;
   /** Total number of records matching the query */
@@ -2311,8 +2215,7 @@ export type Protocol = {
   eModes?: Maybe<EModePage>;
   /** Unique identifier for the protocol composed by <riskEngineAddress>-<chainId> (exact match) */
   id: Scalars['String']['output'];
-  initOracleEngineBeaconProxy?: Maybe<BeaconProxy>;
-  initOracleEngineBeaconProxyId: Scalars['String']['output'];
+  initOracleEngineBeaconProxy: Scalars['String']['output'];
   /** Address of the initial protocol governor (exact match) */
   initialGovernor: Scalars['String']['output'];
   /** Indicates if borrowing is paused (exact match) */
@@ -2327,19 +2230,16 @@ export type Protocol = {
   oracle: Scalars['String']['output'];
   /** Share allocated to protocol owner with 18 decimals (exact match) */
   ownerShare: Scalars['BigInt']['output'];
-  pTokenBeaconProxy?: Maybe<BeaconProxy>;
-  pTokenBeaconProxyId: Scalars['String']['output'];
+  pTokenBeaconProxy: Scalars['String']['output'];
   pTokens?: Maybe<PTokenPage>;
   /** Protocol-specific identifier on the factory address (exact match) */
   protocolId: Scalars['BigInt']['output'];
   /** Address of the risk engine (exact match) */
   riskEngine: Scalars['String']['output'];
-  riskEngineBeaconProxy?: Maybe<BeaconProxy>;
-  riskEngineBeaconProxyId: Scalars['String']['output'];
+  riskEngineBeaconProxy: Scalars['String']['output'];
   /** Address of the timelock contract (exact match) */
   timelock: Scalars['String']['output'];
-  timelockBeaconProxy?: Maybe<BeaconProxy>;
-  timelockBeaconProxyId: Scalars['String']['output'];
+  timelockBeaconProxy: Scalars['String']['output'];
 };
 
 
@@ -2436,16 +2336,16 @@ export type ProtocolFilter = {
   id_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
   id_not_starts_with?: InputMaybe<Scalars['String']['input']>;
   id_starts_with?: InputMaybe<Scalars['String']['input']>;
-  initOracleEngineBeaconProxyId?: InputMaybe<Scalars['String']['input']>;
-  initOracleEngineBeaconProxyId_contains?: InputMaybe<Scalars['String']['input']>;
-  initOracleEngineBeaconProxyId_ends_with?: InputMaybe<Scalars['String']['input']>;
-  initOracleEngineBeaconProxyId_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  initOracleEngineBeaconProxyId_not?: InputMaybe<Scalars['String']['input']>;
-  initOracleEngineBeaconProxyId_not_contains?: InputMaybe<Scalars['String']['input']>;
-  initOracleEngineBeaconProxyId_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  initOracleEngineBeaconProxyId_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  initOracleEngineBeaconProxyId_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  initOracleEngineBeaconProxyId_starts_with?: InputMaybe<Scalars['String']['input']>;
+  initOracleEngineBeaconProxy?: InputMaybe<Scalars['String']['input']>;
+  initOracleEngineBeaconProxy_contains?: InputMaybe<Scalars['String']['input']>;
+  initOracleEngineBeaconProxy_ends_with?: InputMaybe<Scalars['String']['input']>;
+  initOracleEngineBeaconProxy_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  initOracleEngineBeaconProxy_not?: InputMaybe<Scalars['String']['input']>;
+  initOracleEngineBeaconProxy_not_contains?: InputMaybe<Scalars['String']['input']>;
+  initOracleEngineBeaconProxy_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  initOracleEngineBeaconProxy_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  initOracleEngineBeaconProxy_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  initOracleEngineBeaconProxy_starts_with?: InputMaybe<Scalars['String']['input']>;
   initialGovernor?: InputMaybe<Scalars['String']['input']>;
   initialGovernor_contains?: InputMaybe<Scalars['String']['input']>;
   initialGovernor_ends_with?: InputMaybe<Scalars['String']['input']>;
@@ -2490,16 +2390,16 @@ export type ProtocolFilter = {
   ownerShare_lte?: InputMaybe<Scalars['BigInt']['input']>;
   ownerShare_not?: InputMaybe<Scalars['BigInt']['input']>;
   ownerShare_not_in?: InputMaybe<Array<InputMaybe<Scalars['BigInt']['input']>>>;
-  pTokenBeaconProxyId?: InputMaybe<Scalars['String']['input']>;
-  pTokenBeaconProxyId_contains?: InputMaybe<Scalars['String']['input']>;
-  pTokenBeaconProxyId_ends_with?: InputMaybe<Scalars['String']['input']>;
-  pTokenBeaconProxyId_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  pTokenBeaconProxyId_not?: InputMaybe<Scalars['String']['input']>;
-  pTokenBeaconProxyId_not_contains?: InputMaybe<Scalars['String']['input']>;
-  pTokenBeaconProxyId_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  pTokenBeaconProxyId_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  pTokenBeaconProxyId_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  pTokenBeaconProxyId_starts_with?: InputMaybe<Scalars['String']['input']>;
+  pTokenBeaconProxy?: InputMaybe<Scalars['String']['input']>;
+  pTokenBeaconProxy_contains?: InputMaybe<Scalars['String']['input']>;
+  pTokenBeaconProxy_ends_with?: InputMaybe<Scalars['String']['input']>;
+  pTokenBeaconProxy_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  pTokenBeaconProxy_not?: InputMaybe<Scalars['String']['input']>;
+  pTokenBeaconProxy_not_contains?: InputMaybe<Scalars['String']['input']>;
+  pTokenBeaconProxy_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  pTokenBeaconProxy_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  pTokenBeaconProxy_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  pTokenBeaconProxy_starts_with?: InputMaybe<Scalars['String']['input']>;
   protocolId?: InputMaybe<Scalars['BigInt']['input']>;
   protocolId_gt?: InputMaybe<Scalars['BigInt']['input']>;
   protocolId_gte?: InputMaybe<Scalars['BigInt']['input']>;
@@ -2509,16 +2409,16 @@ export type ProtocolFilter = {
   protocolId_not?: InputMaybe<Scalars['BigInt']['input']>;
   protocolId_not_in?: InputMaybe<Array<InputMaybe<Scalars['BigInt']['input']>>>;
   riskEngine?: InputMaybe<Scalars['String']['input']>;
-  riskEngineBeaconProxyId?: InputMaybe<Scalars['String']['input']>;
-  riskEngineBeaconProxyId_contains?: InputMaybe<Scalars['String']['input']>;
-  riskEngineBeaconProxyId_ends_with?: InputMaybe<Scalars['String']['input']>;
-  riskEngineBeaconProxyId_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  riskEngineBeaconProxyId_not?: InputMaybe<Scalars['String']['input']>;
-  riskEngineBeaconProxyId_not_contains?: InputMaybe<Scalars['String']['input']>;
-  riskEngineBeaconProxyId_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  riskEngineBeaconProxyId_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  riskEngineBeaconProxyId_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  riskEngineBeaconProxyId_starts_with?: InputMaybe<Scalars['String']['input']>;
+  riskEngineBeaconProxy?: InputMaybe<Scalars['String']['input']>;
+  riskEngineBeaconProxy_contains?: InputMaybe<Scalars['String']['input']>;
+  riskEngineBeaconProxy_ends_with?: InputMaybe<Scalars['String']['input']>;
+  riskEngineBeaconProxy_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  riskEngineBeaconProxy_not?: InputMaybe<Scalars['String']['input']>;
+  riskEngineBeaconProxy_not_contains?: InputMaybe<Scalars['String']['input']>;
+  riskEngineBeaconProxy_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  riskEngineBeaconProxy_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  riskEngineBeaconProxy_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  riskEngineBeaconProxy_starts_with?: InputMaybe<Scalars['String']['input']>;
   riskEngine_contains?: InputMaybe<Scalars['String']['input']>;
   riskEngine_ends_with?: InputMaybe<Scalars['String']['input']>;
   riskEngine_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
@@ -2529,16 +2429,16 @@ export type ProtocolFilter = {
   riskEngine_not_starts_with?: InputMaybe<Scalars['String']['input']>;
   riskEngine_starts_with?: InputMaybe<Scalars['String']['input']>;
   timelock?: InputMaybe<Scalars['String']['input']>;
-  timelockBeaconProxyId?: InputMaybe<Scalars['String']['input']>;
-  timelockBeaconProxyId_contains?: InputMaybe<Scalars['String']['input']>;
-  timelockBeaconProxyId_ends_with?: InputMaybe<Scalars['String']['input']>;
-  timelockBeaconProxyId_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  timelockBeaconProxyId_not?: InputMaybe<Scalars['String']['input']>;
-  timelockBeaconProxyId_not_contains?: InputMaybe<Scalars['String']['input']>;
-  timelockBeaconProxyId_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  timelockBeaconProxyId_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
-  timelockBeaconProxyId_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  timelockBeaconProxyId_starts_with?: InputMaybe<Scalars['String']['input']>;
+  timelockBeaconProxy?: InputMaybe<Scalars['String']['input']>;
+  timelockBeaconProxy_contains?: InputMaybe<Scalars['String']['input']>;
+  timelockBeaconProxy_ends_with?: InputMaybe<Scalars['String']['input']>;
+  timelockBeaconProxy_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  timelockBeaconProxy_not?: InputMaybe<Scalars['String']['input']>;
+  timelockBeaconProxy_not_contains?: InputMaybe<Scalars['String']['input']>;
+  timelockBeaconProxy_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  timelockBeaconProxy_not_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  timelockBeaconProxy_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  timelockBeaconProxy_starts_with?: InputMaybe<Scalars['String']['input']>;
   timelock_contains?: InputMaybe<Scalars['String']['input']>;
   timelock_ends_with?: InputMaybe<Scalars['String']['input']>;
   timelock_in?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
@@ -3823,4 +3723,4 @@ export type GetProtocolDataQueryVariables = Exact<{
 }>;
 
 
-export type GetProtocolDataQuery = { __typename?: 'Query', protocol?: { __typename?: 'protocol', pTokens?: { __typename?: 'pTokenPage', items: Array<{ __typename?: 'pToken', id: string, address: string, decimals: string, liquidationThreshold: any, liquidationIncentive: any, reserveFactor: any, collateralFactor: any, closeFactor: any, supplyCap: any, borrowCap: any, exchangeRateStored: any, borrowIndex: any, underlyingPriceCurrent: any, userBalances?: { __typename?: 'userBalancePage', items: Array<{ __typename?: 'userBalance', id: string, chainId: any, userId: string, pTokenId: string, supplyShares: any, borrowAssets: any, isCollateral: boolean, interestIndex: any, updatedAt: any }> } | null }> } | null, eModes?: { __typename?: 'eModePage', items: Array<{ __typename?: 'eMode', id: string, chainId: any, protocolId: string, categoryId: string, collateralFactor: any, liquidationThreshold: any, liquidationIncentive: any, users?: { __typename?: 'userEModePage', items: Array<{ __typename?: 'userEMode', userId: string, eModeId: string, chainId: any, id: string }> } | null }> } | null } | null };
+export type GetProtocolDataQuery = { __typename?: 'Query', protocol?: { __typename?: 'protocol', oracle: string, pTokens?: { __typename?: 'pTokenPage', items: Array<{ __typename?: 'pToken', id: string, address: string, decimals: string, liquidationThreshold: any, liquidationIncentive: any, reserveFactor: any, collateralFactor: any, closeFactor: any, supplyCap: any, borrowCap: any, exchangeRateStored: any, borrowIndex: any, underlyingPriceCurrent: any, userBalances?: { __typename?: 'userBalancePage', items: Array<{ __typename?: 'userBalance', id: string, chainId: any, userId: string, pTokenId: string, supplyShares: any, borrowAssets: any, isCollateral: boolean, interestIndex: any, updatedAt: any }> } | null }> } | null, eModes?: { __typename?: 'eModePage', items: Array<{ __typename?: 'eMode', id: string, chainId: any, protocolId: string, categoryId: string, collateralFactor: any, liquidationThreshold: any, liquidationIncentive: any, users?: { __typename?: 'userEModePage', items: Array<{ __typename?: 'userEMode', userId: string, eModeId: string, chainId: any, id: string }> } | null }> } | null } | null };

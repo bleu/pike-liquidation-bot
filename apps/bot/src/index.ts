@@ -1,11 +1,11 @@
 // src/index.ts
 
+import { protocolId } from "@pike-liq-bot/utils";
 import { LiquidationBot } from "./liquidationBot";
 import {
   createWalletClientFromPrivateKey,
   PikeClient,
 } from "./services/clients";
-import { getEnv } from "./utils/env";
 
 async function main(): Promise<void> {
   const pikeClient = new PikeClient(
@@ -13,7 +13,7 @@ async function main(): Promise<void> {
       process.env.BOT_PRIVATE_KEY as `0x${string}`
     )
   );
-  const protocolId = getEnv("PROTOCOL_ID");
+
   const bot = new LiquidationBot({ pikeClient, protocolId });
 
   // Handle shutdown gracefully

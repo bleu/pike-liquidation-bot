@@ -3,6 +3,7 @@ import { gql } from "graphql-tag";
 export const GET_PROTOCOL_DATA = gql`
   query GetProtocolData($protocolId: String!) {
     protocol(id: $protocolId) {
+      oracle
       pTokens {
         items {
           id

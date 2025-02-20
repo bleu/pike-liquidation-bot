@@ -1,6 +1,8 @@
 import { pstETH, pUSDC, pWETH, stETH, USDC, WETH } from "./contracts";
 import { Address } from "viem";
 
+export const protocolId = "0x8Fc240c810Fc3f7E4D966c45dd0e875863EA6305-84532";
+
 export const getUnderlying = (pToken: Address) => {
   if (pToken.toLowerCase() === pWETH.toLowerCase()) return WETH;
   if (pToken.toLowerCase() === pUSDC.toLowerCase()) return USDC;
