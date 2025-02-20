@@ -10,6 +10,13 @@ This codebase was developed before the launch of Pike Markets, which means:
 - Some components may be superseded by official Pike tools (SDK, indexers, etc.)
 - Token and price data are mocked for testing purposes
 
+## Bot Assumptions
+
+The current version of the bot was made to run on a testnet environment, so it makes some assumptions:
+   - The address that is using for the liquidation has the token need to repay the position;
+   - The address already made a max underlying token approve to the pToken address (that will be used to repay)
+   - The bot address receive the redeem tokens and doesn't have any strategy on how to handle its own portfolio
+
 ## System Architecture
 
 The system consists of one bot application and a supporting smart contract layer for more advanced liquidation operations. The Liquidation Bot serves as the active component that monitors and executes liquidation opportunities using data from the Pike Indexer Backend.
