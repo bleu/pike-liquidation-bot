@@ -12,7 +12,7 @@ This codebase was developed before the launch of Pike Markets, which means:
 
 ## System Architecture
 
-The system consists of three applications and a supporting smart contract layer that work together to enable efficient liquidation operations. The Position Indexer tracks on-chain positions and liquidation parameters, while the Price API manages price feeds and oracle interactions. The Liquidation Bot serves as the active component that monitors and executes liquidation opportunities, supported by helper contracts that facilitate flash loan strategies and liquidations.
+The system consists of one bot application and a supporting smart contract layer for more advanced liquidation operations. The Liquidation Bot serves as the active component that monitors and executes liquidation opportunities using data from the Pike Indexer Backend.
 
 ## Getting Started
 
