@@ -1,11 +1,32 @@
 import { Address } from "viem";
-import { schema } from "./utils/ponder/ponderClient";
+import { EMode, PToken, UserBalance } from "./utils/graphql/generated/graphql";
 
 export interface UserPositionData {
-  userBalance: typeof schema.userBalance.$inferSelect;
-  pToken: typeof schema.pToken.$inferSelect;
-  eMode: typeof schema.eMode.$inferSelect | null;
-  userEMode?: typeof schema.userEMode.$inferSelect | null;
+  userBalance: UserBalance;
+  pToken: Pick<
+    PToken,
+    | "id"
+    | "address"
+    | "decimals"
+    | "liquidationThreshold"
+    | "liquidationIncentive"
+    | "reserveFactor"
+    | "collateralFactor"
+    | "closeFactor"
+    | "supplyCap"
+    | "borrowCap"
+    | "exchangeRateStored"
+    | "borrowIndex"
+    | "underlyingPriceCurrent"
+  >;
+  eMode?: Pick<
+    EMode,
+    | "id"
+    | "categoryId"
+    | "collateralFactor"
+    | "liquidationThreshold"
+    | "liquidationIncentive"
+  >;
   underlyingTokenPrice: bigint;
 }
 

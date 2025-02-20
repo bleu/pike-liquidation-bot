@@ -28,7 +28,7 @@ async function main(): Promise<void> {
     // Initial update
     await bot.runLiquidationCycle();
 
-    setInterval(bot.runLiquidationCycle, 10_000);
+    setInterval(bot.runLiquidationCycle, 1000 * 60 * 5); // 5 minutes
 
     await new Promise(() => {}); // Never resolves, keeps process alive
   } catch (error) {

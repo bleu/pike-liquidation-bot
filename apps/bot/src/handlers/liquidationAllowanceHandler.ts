@@ -9,7 +9,7 @@ import {
 import { MathSol } from "@pike-liq-bot/utils";
 
 export class LiquidationAllowanceHandler {
-  constructor(private readonly minCollateralUsdValue?: string) {
+  constructor(private readonly minCollateralUsdValue: string = "0") {
     logger.debug("Initializing LiquidationAllowanceHandler");
   }
 
@@ -23,44 +23,40 @@ export class LiquidationAllowanceHandler {
     const usersMetrics = userPositionData.map(this.getUserMetrics);
 
     const usersToLiquidateMetrics = usersMetrics.filter(
-      ({ healthIndex, totalCollateralUsdValue }) =>
-        healthIndex < parseEther("1") &&
-        (!this.minCollateralUsdValue ||
-          totalCollateralUsdValue > parseEther(this.minCollateralUsdValue))
+      ({ healthIndex, totalCollateralUsdValue }) => {
+        const healthIndexNegative = healthIndex < parseEther("1");
+        const aboveCollateral =
+          totalCollateralUsdValue > parseEther(this.minCollateralUsdValue);
+        return healthIndexNegative && aboveCollateral;
+      }
     );
 
     return usersToLiquidateMetrics.map(({ userBalancesWithMetrics }) => {
-      const biggestBorrowPosition = userBalancesWithMetrics.reduce(
-        // @ts-ignore
-        (acc, { metrics }) => {
-          if (
-            parseEther(metrics.borrowUsdValue) >
-            parseEther(acc.metrics.borrowUsdValue)
-          ) {
-            return metrics;
-          }
-          return acc;
-        },
-        userBalancesWithMetrics[0]
+      const sortedBorrowPositions = [...userBalancesWithMetrics].sort(
+        (a, b) =>
+          Number(b.metrics.borrowUsdValue) - Number(a.metrics.borrowUsdValue)
       );
 
-      const biggestCollateralPosition = userBalancesWithMetrics.reduce(
-        // @ts-ignore
-        (acc, { metrics }) => {
-          if (
-            parseEther(metrics.supplyUsdValue) >
-            parseEther(acc.metrics.supplyUsdValue)
-          ) {
-            return metrics;
-          }
-          return acc;
-        },
-        userBalancesWithMetrics[0]
-      );
+      const sortedCollateralPosition = [...userBalancesWithMetrics]
+        .filter((balance) => balance.userBalance.isCollateral)
+        .sort(
+          (a, b) =>
+            Number(b.metrics.supplyUsdValue) - Number(a.metrics.supplyUsdValue)
+        );
+
+      const firstBorrowPosition = sortedBorrowPositions[0];
+      const firstCollateralPosition = sortedCollateralPosition[0];
+
+      if (firstBorrowPosition.pToken.id !== firstCollateralPosition.pToken.id) {
+        return {
+          biggestBorrowPosition: firstBorrowPosition,
+          biggestCollateralPosition: firstCollateralPosition,
+        };
+      }
 
       return {
-        biggestBorrowPosition,
-        biggestCollateralPosition,
+        biggestBorrowPosition: firstBorrowPosition,
+        biggestCollateralPosition: sortedCollateralPosition[1],
       };
     });
   }
@@ -91,7 +87,7 @@ export class LiquidationAllowanceHandler {
             acc +
             MathSol.divDownFixed(
               parseEther(metrics.supplyUsdValue),
-              liquidationThreshold
+              BigInt(liquidationThreshold)
             )
           );
         },
@@ -108,10 +104,13 @@ export class LiquidationAllowanceHandler {
       0n
     );
 
-    const healthIndex = MathSol.divDownFixed(
-      totalCollateralWithLiquidationThreshold,
-      totalBorrowUsdValue
-    );
+    const healthIndex =
+      totalBorrowUsdValue === 0n
+        ? parseEther("999")
+        : MathSol.divDownFixed(
+            totalCollateralWithLiquidationThreshold,
+            totalBorrowUsdValue
+          );
 
     return {
       healthIndex,

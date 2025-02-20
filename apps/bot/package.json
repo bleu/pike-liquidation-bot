@@ -5,12 +5,11 @@
   "type": "module",
   "dependencies": {
     "@pike-liq-bot/utils": "workspace:*",
-    "@ponder/client": "^0.9.10",
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.4",
+    "graphql-request": "^7.1.2",
     "graphql-tag": "^2.12.6",
-    "ponder": "^0.9.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
     "viem": "^2.21.40",

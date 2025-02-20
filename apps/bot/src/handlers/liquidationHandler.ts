@@ -41,7 +41,7 @@ export class LiquidationHandler {
 
     return MathSol.divDownFixed(
       totalCollateralValue,
-      MathSol.mulUpFixed(borrowPrice, liquidationIncentive)
+      MathSol.mulUpFixed(borrowPrice, BigInt(liquidationIncentive))
     );
   }
 
@@ -80,16 +80,16 @@ export class LiquidationHandler {
     const repayAmount = this.checkAmountToLiquidate(userPositions);
 
     // userId is address-chainId
-    const borrower =
-      userPositions.biggestBorrowPosition.userBalance.userId.split(
-        "-"
-      )[0] as Address;
+    const borrower = userPositions.biggestBorrowPosition.userBalance
+      .userId as Address;
 
     return {
       borrower,
-      borrowPToken: userPositions.biggestBorrowPosition.pToken.address,
+      borrowPToken: userPositions.biggestBorrowPosition.pToken
+        .address as Address,
       repayAmount,
-      collateralPToken: userPositions.biggestCollateralPosition.pToken.address,
+      collateralPToken: userPositions.biggestCollateralPosition.pToken
+        .address as Address,
     };
   }
 }

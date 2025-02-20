@@ -5,15 +5,12 @@ import { privateKeyToAccount } from "viem/accounts";
 import { type Address, type WalletClient } from "viem";
 import { encodeFunctionData } from "viem";
 import {
-  mockOracleAbi,
   mockTokenAbi,
   pTokenAbi,
   riskEngineAbi,
-  mockOracle,
   riskEngine,
   liquidationHelperAbi,
   liquidationHelper,
-  getDecimals,
   getUnderlying,
 } from "@pike-liq-bot/utils";
 
@@ -168,17 +165,6 @@ export class PikeClient {
     }
 
     throw lastError || new Error("Transaction failed for unknown reason");
-  }
-  async setOraclePrice({ token, price }: { token: Address; price: bigint }) {
-    return this.sendAndWaitForReceipt({
-      to: mockOracle,
-      data: encodeFunctionData({
-        abi: mockOracleAbi,
-        functionName: "setPrice",
-        args: [token, price, getDecimals(token)],
-      }),
-      value: 0n,
-    });
   }
 
   async sendEth({ to, amount }: { to: Address; amount: bigint }) {

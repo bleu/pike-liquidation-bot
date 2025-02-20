@@ -1,6 +1,6 @@
 import { formatEther } from "viem";
 import { MathSol } from "@pike-liq-bot/utils";
-import { schema } from "#/utils/ponder/ponderClient";
+import { UserPositionData } from "#/types";
 
 const YEAR = BigInt(365 * 24 * 60 * 60);
 
@@ -44,20 +44,18 @@ export function calculateUsdValueFromAssets(
   return formatEther(MathSol.mulDownFixed(assets, underlyingPrice));
 }
 
-export function calculateUserBalanceMetrics(userBalanceWithPToken: {
-  userBalance: typeof schema.userBalance.$inferSelect;
-  pToken: typeof schema.pToken.$inferSelect;
-  underlyingTokenPrice: bigint;
-}) {
+export function calculateUserBalanceMetrics(
+  userPositionData: UserPositionData
+) {
   const storedBorrowAssets = calculateStoredBorrowAssets(
-    userBalanceWithPToken.userBalance.borrowAssets,
-    userBalanceWithPToken.pToken.borrowIndex,
-    userBalanceWithPToken.userBalance.interestIndex
+    userPositionData.userBalance.borrowAssets,
+    userPositionData.pToken.borrowIndex,
+    userPositionData.userBalance.interestIndex
   );
 
   const supplyAssets = sharesToAssets(
-    userBalanceWithPToken.userBalance.supplyShares,
-    userBalanceWithPToken.pToken.exchangeRateStored
+    userPositionData.userBalance.supplyShares,
+    userPositionData.pToken.exchangeRateStored
   );
 
   return {
@@ -65,11 +63,11 @@ export function calculateUserBalanceMetrics(userBalanceWithPToken: {
     supplyAssets,
     borrowUsdValue: calculateUsdValueFromAssets(
       storedBorrowAssets,
-      userBalanceWithPToken.underlyingTokenPrice
+      userPositionData.underlyingTokenPrice
     ),
     supplyUsdValue: calculateUsdValueFromAssets(
       supplyAssets,
-      userBalanceWithPToken.underlyingTokenPrice
+      userPositionData.underlyingTokenPrice
     ),
   };
 }
