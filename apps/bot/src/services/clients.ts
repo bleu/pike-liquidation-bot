@@ -5,23 +5,21 @@ import { privateKeyToAccount } from "viem/accounts";
 import { type Address, type WalletClient } from "viem";
 import { encodeFunctionData } from "viem";
 import {
-  mockOracleAbi,
   mockTokenAbi,
   pTokenAbi,
   riskEngineAbi,
-  mockOracle,
   riskEngine,
   liquidationHelperAbi,
   liquidationHelper,
-  getDecimals,
   getUnderlying,
 } from "@pike-liq-bot/utils";
 
 export const chain = baseSepolia;
+export const transport = http(getEnv("RPC_URL"));
 
 export const publicClient = createPublicClient({
   chain,
-  transport: http(getEnv("RPC_URL")),
+  transport,
 });
 
 export function createWalletClientFromPrivateKey(privateKey: `0x${string}`) {
@@ -45,31 +43,6 @@ export class PikeClient {
   setLog(log: boolean) {
     this.log = log;
   }
-
-  // private async getOptimizedGasFees() {
-  //   // Get current block's base fee
-  //   const block = await publicClient.getBlock();
-  //   const baseFee = block.baseFeePerGas!;
-
-  //   // Set priority fee (2 Gwei)
-  //   const maxPriorityFeePerGas = 5_000_000_000n;
-
-  //   // maxFeePerGas must be at least baseFee + maxPriorityFeePerGas
-  //   // Add 20% buffer to ensure better inclusion
-  //   const maxFeePerGas =
-  //     baseFee + maxPriorityFeePerGas + (baseFee * 50n) / 100n;
-
-  //   if (this.log) {
-  //     console.log(`Base fee: ${baseFee} wei`);
-  //     console.log(`Max priority fee: ${maxPriorityFeePerGas} wei`);
-  //     console.log(`Max fee: ${maxFeePerGas} wei`);
-  //   }
-
-  //   return {
-  //     maxFeePerGas,
-  //     maxPriorityFeePerGas,
-  //   };
-  // }
 
   private async waitForTransactionWithTimeout(
     hash: `0x${string}`,
@@ -192,17 +165,6 @@ export class PikeClient {
     }
 
     throw lastError || new Error("Transaction failed for unknown reason");
-  }
-  async setOraclePrice({ token, price }: { token: Address; price: bigint }) {
-    return this.sendAndWaitForReceipt({
-      to: mockOracle,
-      data: encodeFunctionData({
-        abi: mockOracleAbi,
-        functionName: "setPrice",
-        args: [token, price, getDecimals(token)],
-      }),
-      value: 0n,
-    });
   }
 
   async sendEth({ to, amount }: { to: Address; amount: bigint }) {

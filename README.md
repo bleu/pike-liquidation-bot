@@ -10,9 +10,16 @@ This codebase was developed before the launch of Pike Markets, which means:
 - Some components may be superseded by official Pike tools (SDK, indexers, etc.)
 - Token and price data are mocked for testing purposes
 
+## Bot Assumptions
+
+The current version of the bot was made to run on a testnet environment, so it makes some assumptions:
+   - The address that is using for the liquidation has the token need to repay the position;
+   - The address already made a max underlying token approve to the pToken address (that will be used to repay)
+   - The bot address receive the redeem tokens and doesn't have any strategy on how to handle its own portfolio
+
 ## System Architecture
 
-The system consists of three applications and a supporting smart contract layer that work together to enable efficient liquidation operations. The Position Indexer tracks on-chain positions and liquidation parameters, while the Price API manages price feeds and oracle interactions. The Liquidation Bot serves as the active component that monitors and executes liquidation opportunities, supported by helper contracts that facilitate flash loan strategies and liquidations.
+The system consists of one bot application and a supporting smart contract layer for more advanced liquidation operations. The Liquidation Bot serves as the active component that monitors and executes liquidation opportunities using data from the Pike Indexer Backend.
 
 ## Getting Started
 
@@ -34,21 +41,14 @@ pnpm install
 
 Launch the components in the following order:
 
-1. **Position Indexer**:
-   ```bash
-   cd apps/ponder_app
-   pnpm dev
-   # Available at http://localhost:42069
-   ```
-
-2. **Mock Price API**:
+1. **Mock Price API**:
    ```bash
    cd apps/mock_price_api
    pnpm dev
    # Available at http://localhost:3000
    ```
 
-3. **Liquidation Bot**:
+2. **Liquidation Bot**:
    ```bash
    cd apps/bot
    pnpm dev
@@ -56,9 +56,6 @@ Launch the components in the following order:
 
 ## Component Details
 
-### Position Indexer
-
-The Position Indexer is built using Ponder and serves as the backbone for tracking protocol data. It maintains real-time information about the Pike protocol, including liquidation parameters and user positions (collateral and borrow balances). Since oracles typically don't emit events for price updates, price information isn't handled by the indexer.
 
 ### Mock Price API
 

@@ -1,0 +1,15 @@
+schema: 'https://pike-indexer-production.up.railway.app/'  # Your GraphQL schema URL
+documents: ['src/**/*.ts']         # Location of your GraphQL operations
+generates:
+  './src/utils/graphql/generated/graphql.ts':
+    plugins:
+      - typescript
+      - typescript-operations
+    config:
+      withHooks: false                   # Generate React hooks
+      withComponent: false              # Don't generate React components
+      withHOC: false                    # Don't generate HOCs
+      skipTypename: false              # Include __typename fields
+      dedupeFragments: true            # Deduplicate fragment types
+      preResolveTypes: true            # Pre-resolve types for better performance
+      enumsAsTypes: true               # Generate enums as TypeScript types

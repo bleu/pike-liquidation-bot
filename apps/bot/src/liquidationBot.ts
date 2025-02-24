@@ -1,140 +1,63 @@
-import { Address } from "viem";
-import { LiquidationData } from "./types";
-import { PriceHandler } from "./handlers/priceHandler";
-import { PositionHandler } from "./handlers/positionHandler";
 import { LiquidationHandler } from "./handlers/liquidationHandler";
 import { PikeClient } from "./services/clients";
 import { logger } from "./services/logger";
 import { LiquidationAllowanceHandler } from "./handlers/liquidationAllowanceHandler";
-import { MarketHandler } from "./handlers/marketHandler";
+import { DataLoaderHandler } from "./handlers/dataLoaderHandler";
 
 export class LiquidationBot {
-  private onLiquidation: Address[] = [];
-  private priceHandler: PriceHandler;
-  private positionHandler: PositionHandler;
+  private dataLoaderHandler: DataLoaderHandler;
   private liquidationHandler: LiquidationHandler;
-  private marketHandler: MarketHandler;
   private liquidationAllowanceHandler: LiquidationAllowanceHandler;
 
   constructor({
     pikeClient,
-    minCollateralUsdValue = 500,
-    minProfitUsdValue,
+    protocolId,
   }: {
     pikeClient: PikeClient;
-    positionsToMonitorLimit?: number;
-    minCollateralUsdValue?: number;
-    minProfitUsdValue?: number;
+    protocolId: string;
   }) {
-    this.priceHandler = new PriceHandler();
-    this.marketHandler = new MarketHandler();
-    this.positionHandler = new PositionHandler(
-      this.priceHandler,
-      this.marketHandler,
-      minCollateralUsdValue
-    );
-    this.liquidationHandler = new LiquidationHandler(
-      pikeClient,
-      this.marketHandler,
-      minProfitUsdValue
-    );
-    this.liquidationAllowanceHandler = new LiquidationAllowanceHandler(
-      this.priceHandler,
-      this.marketHandler
-    );
+    logger.info("Initializing LiquidationBot", {
+      class: "LiquidationBot",
+      protocolId: protocolId,
+    });
+    this.dataLoaderHandler = new DataLoaderHandler(protocolId);
+    this.liquidationHandler = new LiquidationHandler(pikeClient);
+    this.liquidationAllowanceHandler = new LiquidationAllowanceHandler();
   }
 
-  public updatePositionsToMonitor = async () => {
-    logger.debug("Updating positions...", {
+  public runLiquidationCycle = async () => {
+    logger.info("Starting liquidation cycle", {
       class: "LiquidationBot",
     });
-
-    return Promise.all([
-      this.positionHandler.updatePositions(),
-      this.liquidationHandler.updateRiskEngineParameters(),
-    ]);
-  };
-
-  public updateMarketHandlerParameters = async () => {
-    await this.marketHandler.updateMarketHandlerParameters();
-  };
-
-  public updatePricesAndCheckForLiquidation = async () => {
-    await this.priceHandler.updatePrices();
-
-    logger.debug("updatePricesAndCheckForLiquidation", {
-      allPositionsLength: Object.values(this.positionHandler.allPositions)
-        .length,
-      onLiquidationLength: this.onLiquidation.length,
-    });
-
-    const liquidatablePositions = Object.values(
-      this.positionHandler.allPositions
-    ).filter(
-      (userPosition) =>
-        this.liquidationAllowanceHandler.checkLiquidationAllowed(
-          userPosition
-        ) && !this.onLiquidation.includes(userPosition.id)
-    );
-
-    const liquidationPositionUpdatedWithValue = liquidatablePositions
-      .map((position) => this.positionHandler.getUpdatedPositions(position))
-      .map((position) =>
-        this.positionHandler.getUserPositionWithValue(position)
-      );
-
-    const biggestUserPostions = liquidationPositionUpdatedWithValue
-      .map((position) =>
-        this.liquidationHandler.getBiggestPositionsFromAllUserPositions(
-          position
-        )
-      )
-      .filter((position) => !!position);
-
-    const liquidationData = biggestUserPostions
-      .map((position) =>
-        this.liquidationHandler.getLiquidationDataFromBiggestUserPositions(
-          position
-        )
-      )
-      .filter((position) =>
-        this.liquidationHandler.checkIfLiquidationIsAboveProfitThreshold(
-          position.expectedProfitUsdValue
-        )
+    const usersData = await this.dataLoaderHandler.loadUserPositionData();
+    const usersToLiquidateBiggestPositions =
+      this.liquidationAllowanceHandler.getUsersToLiquidateBiggestPositions(
+        usersData
       );
 
     logger.info(
-      `Found ${liquidationData.length} new liquidatable positions that passed the filters`,
+      `${usersToLiquidateBiggestPositions.length} to liquidate positions found `,
       {
         class: "LiquidationBot",
-        addresses: liquidationData.map((position) => position.borrower),
+        users: usersToLiquidateBiggestPositions.map(
+          (user) => user.biggestBorrowPosition.userBalance.userId
+        ),
       }
     );
-
-    liquidationData.forEach((data) => {
-      this.onLiquidation.push(data.borrower);
-      this.liquidatePosition(data);
-    });
-  };
-
-  private liquidatePosition = async (data: LiquidationData) => {
-    await this.liquidationHandler
-      .liquidatePosition(data)
-      .then((liquidationReceipt) => {
-        logger.info(
-          `Position liquidated for borrower ${data.borrower} on tx: ${liquidationReceipt}`
-        );
-      })
-      .catch((error) => {
+    usersToLiquidateBiggestPositions.forEach(async (userBiggestPosition) => {
+      try {
+        const liquidationData =
+          this.liquidationHandler.getLiquidationDataFromBiggestUserPositions(
+            userBiggestPosition
+          );
+        await this.liquidationHandler.liquidatePosition(liquidationData);
+      } catch (error) {
         logger.error("Failed to liquidate position", {
-          class: "LiquidationBot",
+          class: "Liquidation",
+          address: userBiggestPosition.biggestBorrowPosition.userBalance.userId,
           error,
         });
-      });
-
-    const index = this.onLiquidation.indexOf(data.borrower);
-    if (index > -1) {
-      this.onLiquidation = this.onLiquidation.splice(index, 1);
-    }
+      }
+    });
   };
 }

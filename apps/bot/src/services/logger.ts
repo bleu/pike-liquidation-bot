@@ -3,7 +3,7 @@ const { createLogger, format, transports } = winston;
 
 // Create the logger with all configurations
 const baseLogger = createLogger({
-  level: "info",
+  level: "debug",
   format: format.combine(
     format.timestamp({
       format: "YYYY-MM-DD HH:mm:ss",
